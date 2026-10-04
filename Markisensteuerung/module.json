@@ -3,12 +3,7 @@
     "name": "Markisensteuerung",
     "type": 3,
     "vendor": "Armin Frohwerk",
-    "aliases": [
-        "Markisensteuerung",
-        "Markise",
-        "Markisenautomatik",
-        "Awning Control"
-    ],
+    "aliases": [],
     "parentRequirements": [],
     "childRequirements": [],
     "implemented": [],
