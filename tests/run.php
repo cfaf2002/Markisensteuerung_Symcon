@@ -644,6 +644,11 @@ test('Formular: jedes Feld hat eine Eigenschaft, Sichtbarkeit je Ansteuerung', f
     check(($names['SwitchVariableID']['visible'] ?? null) === true, 'Schaltvariable sichtbar');
     check(($names['ExtendVariableID']['visible'] ?? null) === false, 'Befehlsvariable versteckt');
     check(count($names['WindUnit']['options']) === 3, 'Einheiten gefüllt');
+    check(($names['WindAlarm']['suffix'] ?? '') === 'Bft', 'Windalarm mit Einheit Bft');
+    check(($names['WindMax']['suffix'] ?? '') === 'Bft', 'Windgrenze mit Einheit Bft');
+    check(($names['GustAlarm']['suffix'] ?? '') === 'km/h', 'Böenalarm mit Einheit km/h');
+    $m->RequestAction('FormWindUnit', 2);
+    check(in_array(['WindAlarm', 'suffix', 'm/s'], $m->formUpdates, true), 'Einheit wechselt sofort im Formular');
     $m->RequestAction('FormMode', 2);
     check(in_array(['PositionVariableID', 'visible', true], $m->formUpdates, true), 'Umschalten im Formular');
 });

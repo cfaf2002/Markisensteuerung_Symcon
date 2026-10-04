@@ -173,7 +173,8 @@
                             "type": "Select",
                             "name": "WindUnit",
                             "caption": "Unit",
-                            "options": []
+                            "options": [],
+                            "onChange": "IPS_RequestAction($id, 'FormWindUnit', $WindUnit);"
                         }
                     ]
                 },
@@ -194,7 +195,8 @@
                             "type": "Select",
                             "name": "GustUnit",
                             "caption": "Unit",
-                            "options": []
+                            "options": [],
+                            "onChange": "IPS_RequestAction($id, 'FormGustUnit', $GustUnit);"
                         }
                     ]
                 },
@@ -227,7 +229,7 @@
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Limits for wind and gusts in the unit of the respective sensor."
+                    "caption": "Wind and gust limits use the unit selected for the sensor under Sensors."
                 },
                 {
                     "type": "NumberSpinner",

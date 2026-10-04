@@ -269,6 +269,16 @@ class Markisensteuerung extends IPSModuleStrict
                 $this->EvaluateNow('timer');
                 return;
 
+            case 'FormWindUnit':
+                foreach (['WindAlarm', 'WindMax'] as $field) {
+                    $this->UpdateFormField($field, 'suffix', trim($this->UnitSuffix((int) $Value)));
+                }
+                return;
+
+            case 'FormGustUnit':
+                $this->UpdateFormField('GustAlarm', 'suffix', trim($this->UnitSuffix((int) $Value)));
+                return;
+
             case 'FormMode':
                 foreach ($this->ModeVisibility((int) $Value) as $field => $visible) {
                     $this->UpdateFormField($field, 'visible', $visible);
@@ -1182,10 +1192,18 @@ class Markisensteuerung extends IPSModuleStrict
             $this->Num($sun['azimuth']),
             $this->Num($sun['elevation'])
         );
-        $form['elements'] = $this->WalkForm($form['elements'], static function (array $el) use ($visible, $unitOptions): array {
+        $windSuffix = trim($this->UnitSuffix($this->ReadPropertyInteger('WindUnit')));
+        $gustSuffix = trim($this->UnitSuffix($this->ReadPropertyInteger('GustUnit')));
+        $form['elements'] = $this->WalkForm($form['elements'], static function (array $el) use ($visible, $unitOptions, $windSuffix, $gustSuffix): array {
             $name = $el['name'] ?? '';
             if (isset($visible[$name])) {
                 $el['visible'] = $visible[$name];
+            }
+            if ($name === 'WindAlarm' || $name === 'WindMax') {
+                $el['suffix'] = $windSuffix;
+            }
+            if ($name === 'GustAlarm') {
+                $el['suffix'] = $gustSuffix;
             }
             if ($name === 'WindUnit' || $name === 'GustUnit') {
                 $el['options'] = $unitOptions;

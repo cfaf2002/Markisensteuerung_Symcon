@@ -124,8 +124,8 @@ Helligkeit (lx), Außentemperatur (°C), Windgeschwindigkeit und Böen jeweils m
 
 | Einstellung | Standard | Beschreibung |
 |---|---|---|
-| Windalarm ab | 6 | In der Einheit des Windsensors |
-| Böenalarm ab | 28 | In der Einheit des Böensensors |
+| Windalarm ab | 6 Bft | In der Einheit, die unter „Sensoren“ für den Windsensor gewählt ist (Bft, km/h oder m/s). Das Formular zeigt sie direkt am Feld an |
+| Böenalarm ab | 28 km/h | In der Einheit des Böensensors |
 | Nach dem letzten Windalarm eingefahren lassen | 15 min | Die Sperre beginnt mit jedem neuen Alarmwert von vorn |
 | Nach Regen eingefahren lassen | 10 min | |
 | Frostschutz | an, ≤ 3 °C | Bei Frost wird eingefahren und auch von Hand nicht ausgefahren |
@@ -307,6 +307,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.0 | 4 | 04.10.2026 | Einheit (Bft, km/h, m/s) wird direkt an den Wind- und Böengrenzen angezeigt |
 | 1.0 | 3 | 04.10.2026 | Nur noch ein Eintrag „Markisensteuerung“ beim Hinzufügen einer Instanz (keine Aliase mehr) |
 | 1.0 | 2 | 04.10.2026 | Schalter „Instanz aktiv“, Hersteller eingetragen |
 | 1.0 | 1 | 04.10.2026 | Erste Version als Modul, abgelöst vom bisherigen Markisen-Skript |
