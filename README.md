@@ -302,6 +302,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.0 | 2 | 04.10.2026 | Modul erscheint unter „Instanz hinzufügen“ nur noch einmal (überzählige Aliase entfernt) |
 | 1.0 | 1 | 04.10.2026 | Erste Version als Modul, abgelöst vom bisherigen Markisen-Skript |
 
 ## 13. Lizenz
