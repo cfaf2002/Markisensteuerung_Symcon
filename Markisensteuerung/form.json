@@ -1,0 +1,632 @@
+{
+    "elements": [
+        {
+            "type": "Label",
+            "caption": "Controls an awning automatically by sun, wind, rain, temperature and presence. Safety (wind, gusts, rain, frost, sensor fault) always comes first."
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Actuator",
+            "expanded": true,
+            "items": [
+                {
+                    "type": "Select",
+                    "name": "ActuatorMode",
+                    "caption": "Control via",
+                    "onChange": "IPS_RequestAction($id, 'FormMode', $ActuatorMode);",
+                    "options": [
+                        {
+                            "caption": "Command variables (extend / retract), e.g. Somfy",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Switch variable (on = extended)",
+                            "value": 1
+                        },
+                        {
+                            "caption": "Position variable (percent)",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "type": "SelectVariable",
+                    "name": "ExtendVariableID",
+                    "caption": "Variable for extending (triggered with true)",
+                    "width": "600px",
+                    "requiredAction": 1
+                },
+                {
+                    "type": "SelectVariable",
+                    "name": "RetractVariableID",
+                    "caption": "Variable for retracting (triggered with true)",
+                    "width": "600px",
+                    "requiredAction": 1
+                },
+                {
+                    "type": "SelectVariable",
+                    "name": "StopVariableID",
+                    "caption": "Variable for stop (optional, triggered with true)",
+                    "width": "600px",
+                    "requiredAction": 1
+                },
+                {
+                    "type": "SelectVariable",
+                    "name": "SwitchVariableID",
+                    "caption": "Switch variable",
+                    "width": "600px",
+                    "validVariableTypes": [
+                        0
+                    ],
+                    "requiredAction": 1
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "SwitchInvert",
+                    "caption": "Inverted (off = extended)"
+                },
+                {
+                    "type": "SelectVariable",
+                    "name": "PositionVariableID",
+                    "caption": "Position variable",
+                    "width": "600px",
+                    "validVariableTypes": [
+                        1,
+                        2
+                    ],
+                    "requiredAction": 1
+                },
+                {
+                    "type": "Select",
+                    "name": "PositionScale",
+                    "caption": "Value range of the position",
+                    "options": [
+                        {
+                            "caption": "0 – 100",
+                            "value": 0
+                        },
+                        {
+                            "caption": "0 – 1",
+                            "value": 1
+                        }
+                    ]
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "PositionExtended",
+                    "caption": "Position when extended",
+                    "suffix": "%",
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "PositionRetracted",
+                    "caption": "Position when retracted",
+                    "suffix": "%",
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "TravelTime",
+                    "caption": "Travel time",
+                    "suffix": "s",
+                    "minimum": 1,
+                    "maximum": 600
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "RepeatRetract",
+                    "caption": "Repeat the retract command on safety alarms after the travel time (for radio motors without feedback, e.g. Somfy RTS)"
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Sensors",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Every sensor is optional. Without a wind sensor there is no wind protection."
+                },
+                {
+                    "type": "SelectVariable",
+                    "name": "BrightnessVariableID",
+                    "caption": "Brightness (lx)",
+                    "width": "600px",
+                    "validVariableTypes": [
+                        1,
+                        2
+                    ]
+                },
+                {
+                    "type": "SelectVariable",
+                    "name": "TemperatureVariableID",
+                    "caption": "Outside temperature (°C)",
+                    "width": "600px",
+                    "validVariableTypes": [
+                        1,
+                        2
+                    ]
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "SelectVariable",
+                            "name": "WindVariableID",
+                            "caption": "Wind speed",
+                            "width": "600px",
+                            "validVariableTypes": [
+                                1,
+                                2
+                            ]
+                        },
+                        {
+                            "type": "Select",
+                            "name": "WindUnit",
+                            "caption": "Unit",
+                            "options": []
+                        }
+                    ]
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "SelectVariable",
+                            "name": "GustVariableID",
+                            "caption": "Gusts",
+                            "width": "600px",
+                            "validVariableTypes": [
+                                1,
+                                2
+                            ]
+                        },
+                        {
+                            "type": "Select",
+                            "name": "GustUnit",
+                            "caption": "Unit",
+                            "options": []
+                        }
+                    ]
+                },
+                {
+                    "type": "SelectVariable",
+                    "name": "RainVariableID",
+                    "caption": "Rain (on or value above 0 = rain)",
+                    "width": "600px",
+                    "validVariableTypes": [
+                        0,
+                        1,
+                        2
+                    ]
+                },
+                {
+                    "type": "SelectVariable",
+                    "name": "PresenceVariableID",
+                    "caption": "Presence (on = someone at home)",
+                    "width": "600px",
+                    "validVariableTypes": [
+                        0
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Safety",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Limits for wind and gusts in the unit of the respective sensor."
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "WindAlarm",
+                    "caption": "Wind alarm from",
+                    "digits": 1,
+                    "minimum": 0
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "GustAlarm",
+                    "caption": "Gust alarm from",
+                    "digits": 1,
+                    "minimum": 0
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "WindLockMinutes",
+                    "caption": "Keep retracted after the last wind alarm for",
+                    "suffix": "min",
+                    "minimum": 0,
+                    "maximum": 240
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "RainLockMinutes",
+                    "caption": "Keep retracted after rain for",
+                    "suffix": "min",
+                    "minimum": 0,
+                    "maximum": 240
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "FrostEnabled",
+                    "caption": "Frost protection: do not extend at low temperatures"
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "FrostTemp",
+                    "caption": "Frost at or below",
+                    "suffix": "°C",
+                    "digits": 1
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "WindTimeoutMinutes",
+                    "caption": "Retract if the wind sensor sends no values for (0 = off)",
+                    "suffix": "min",
+                    "minimum": 0,
+                    "maximum": 1440
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "FreezeMinutes",
+                    "caption": "Brightness sensor counts as frozen after unchanged for (0 = off)",
+                    "suffix": "min",
+                    "minimum": 0,
+                    "maximum": 1440
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "FreezeMinChange",
+                    "caption": "Minimum change of the brightness",
+                    "suffix": "lx",
+                    "digits": 1,
+                    "minimum": 0
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "SafetyAlways",
+                    "caption": "Safety also when the automatic is switched off"
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Sun protection",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "NumberSpinner",
+                    "name": "LuxOn",
+                    "caption": "Extend from",
+                    "suffix": "lx",
+                    "minimum": 0,
+                    "maximum": 200000
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "LuxOff",
+                    "caption": "Retract below",
+                    "suffix": "lx",
+                    "minimum": 0,
+                    "maximum": 200000
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "DelayOn",
+                    "caption": "Extend after sun for",
+                    "suffix": "min",
+                    "minimum": 0,
+                    "maximum": 120
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "DelayOff",
+                    "caption": "Retract after no sun for",
+                    "suffix": "min",
+                    "minimum": 0,
+                    "maximum": 240
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "TempMin",
+                    "caption": "Minimum temperature",
+                    "suffix": "°C",
+                    "digits": 1
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "TempHysteresis",
+                    "caption": "Temperature hysteresis",
+                    "suffix": "K",
+                    "digits": 1,
+                    "minimum": 0,
+                    "maximum": 10
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "WindMax",
+                    "caption": "Retract above wind (normal limit, without alarm)",
+                    "digits": 1,
+                    "minimum": 0
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "UseSunPosition",
+                    "caption": "Only when the sun is on the awning (direction and height)"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "NumberSpinner",
+                            "name": "AzimuthFrom",
+                            "caption": "Direction from",
+                            "suffix": "°",
+                            "minimum": 0,
+                            "maximum": 360
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "AzimuthTo",
+                            "caption": "to",
+                            "suffix": "°",
+                            "minimum": 0,
+                            "maximum": 360
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "SunElevationMin",
+                            "caption": "Sun height at least",
+                            "suffix": "°",
+                            "minimum": -10,
+                            "maximum": 90
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "No location found. Please set the location under Core Instances → Location (needed for day/night and the sun direction).",
+                    "name": "LocationHint"
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Times",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Released weekdays"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "CheckBox",
+                            "name": "Weekday1",
+                            "caption": "Mon"
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "Weekday2",
+                            "caption": "Tue"
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "Weekday3",
+                            "caption": "Wed"
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "Weekday4",
+                            "caption": "Thu"
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "Weekday5",
+                            "caption": "Fri"
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "Weekday6",
+                            "caption": "Sat"
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "Weekday7",
+                            "caption": "Sun"
+                        }
+                    ]
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "DayCheck",
+                    "caption": "Day/night check: retract at night"
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "DayElevation",
+                    "caption": "Day from sun height",
+                    "suffix": "°",
+                    "digits": 1,
+                    "minimum": -18,
+                    "maximum": 30
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "UseTimeWindow",
+                    "caption": "Only within a time window"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "SelectTime",
+                            "name": "TimeFrom",
+                            "caption": "from"
+                        },
+                        {
+                            "type": "SelectTime",
+                            "name": "TimeTo",
+                            "caption": "to"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Presence and manual operation",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "NumberSpinner",
+                    "name": "GraceMinutes",
+                    "caption": "Grace period after leaving",
+                    "suffix": "min",
+                    "minimum": 0,
+                    "maximum": 720
+                },
+                {
+                    "type": "Label",
+                    "caption": "During the grace period the awning is not extended, but retracted if the conditions are no longer met. Afterwards it is retracted."
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "ManualPauseMinutes",
+                    "caption": "Pause the automatic after manual operation for (0 = no pause)",
+                    "suffix": "min",
+                    "minimum": 0,
+                    "maximum": 1440
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "ManualDetect",
+                    "caption": "Detect operation via remote control or other scripts (changes of the actuator variables)"
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Notifications",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "CheckBox",
+                    "name": "NotifySafety",
+                    "caption": "Push notification on safety alarms"
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "NotifyMove",
+                    "caption": "Push notification on every automatic movement"
+                },
+                {
+                    "type": "SelectInstance",
+                    "name": "NotifyTarget",
+                    "caption": "Visualization (empty = first tile visualization)",
+                    "width": "600px"
+                },
+                {
+                    "type": "Button",
+                    "caption": "Send test notification",
+                    "onClick": "IPS_RequestAction($id, 'TestNotify', 0);"
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Display",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "CheckBox",
+                    "name": "UseTile",
+                    "caption": "Use own tile in the tile visualization"
+                },
+                {
+                    "type": "Select",
+                    "name": "TileTheme",
+                    "caption": "Color scheme",
+                    "options": [
+                        {
+                            "caption": "Symcon design – colors of the visualization",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Dark",
+                            "value": 1
+                        },
+                        {
+                            "caption": "Light",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "TileReduceMotion",
+                    "caption": "Reduce animations (older wall tablets)"
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "ShowSettings",
+                    "caption": "Limits and weekdays adjustable in the visualization"
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "ShowSunPosition",
+                    "caption": "Sun position as variables"
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "type": "Label",
+            "caption": "",
+            "name": "SunNow"
+        },
+        {
+            "type": "Button",
+            "caption": "Evaluate now",
+            "onClick": "MARKISE_Evaluate($id);"
+        }
+    ],
+    "status": [
+        {
+            "code": 102,
+            "icon": "active",
+            "caption": "Active"
+        },
+        {
+            "code": 104,
+            "icon": "inactive",
+            "caption": "Please select the actuator variables"
+        },
+        {
+            "code": 201,
+            "icon": "error",
+            "caption": "An actuator variable is missing or has no action"
+        },
+        {
+            "code": 202,
+            "icon": "error",
+            "caption": "A sensor variable does not exist"
+        },
+        {
+            "code": 203,
+            "icon": "error",
+            "caption": "Brightness to retract is higher than brightness to extend"
+        }
+    ]
+}

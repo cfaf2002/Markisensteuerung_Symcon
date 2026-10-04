@@ -1,0 +1,12 @@
+{
+    "id": "{690AF428-6F93-4747-AFBF-A159073DE997}",
+    "author": "Armin Frohwerk",
+    "name": "Markisensteuerung",
+    "url": "https://github.com/cfaf2002/Markisensteuerung_Symcon",
+    "compatibility": {
+        "version": "8.2"
+    },
+    "version": "1.0",
+    "build": 1,
+    "date": 1791108178
+}

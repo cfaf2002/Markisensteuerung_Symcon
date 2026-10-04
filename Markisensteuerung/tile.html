@@ -1,0 +1,429 @@
+<!--
+    Kachel für das Modul "Markisensteuerung" (IP-Symcon HTML-SDK)
+    Copyright (c) 2026 Armin Frohwerk · MIT-Lizenz (siehe LICENSE)
+    SPDX-License-Identifier: MIT
+
+    Sicherheit: Alle Werte werden per textContent gesetzt, nie als HTML.
+    Leistung:   Keine externen Dateien, Animationen nur bei Bewegung und nur, solange die Kachel sichtbar ist.
+-->
+<style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+
+    #tile {
+        /* Symcon-Design (Standard): Schrift- und Akzentfarbe der gewählten Visualisierung */
+        --fg: var(--content-color, #eef3f7);
+        --accent: var(--accent-color, #e2a63b);
+        --canvas-a: var(--accent);
+        --canvas-b: color-mix(in srgb, var(--accent) 18%, #f6efe0);
+        --muted: color-mix(in srgb, var(--fg) 62%, transparent);
+        --line: color-mix(in srgb, var(--fg) 14%, transparent);
+        --well: color-mix(in srgb, var(--fg) 7%, transparent);
+        --ok: #34b36b;
+        --bad: #e5484d;
+        --info: #4b8ef0;
+        --off: #8796a5;
+        --tone: var(--info);
+        --e: 0;                 /* Ausfahrgrad 0..1 */
+        --travel: 2s;
+
+        position: relative;
+        box-sizing: border-box;
+        width: 100%;
+        height: 100%;
+        padding: clamp(8px, 4cqmin, 16px);
+        display: flex;
+        flex-direction: column;
+        gap: clamp(6px, 2.5cqmin, 10px);
+        container-type: size;
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        font-size: 13px;
+        line-height: 1.35;
+        -webkit-font-smoothing: antialiased;
+        -webkit-tap-highlight-color: transparent;
+    }
+    #tile.theme-dark  { --fg: #eef3f7; --accent: #e2a63b; background: linear-gradient(180deg, #1b2a38, #142029); border-radius: inherit; }
+    #tile.theme-light { --fg: #1d2b36; --accent: #c98a1c; background: linear-gradient(180deg, #f4f8fb, #e6eef4); border-radius: inherit; }
+
+    #tile.tone-ok   { --tone: var(--ok); }
+    #tile.tone-bad  { --tone: var(--bad); }
+    #tile.tone-off  { --tone: var(--off); }
+
+    /* ---------- Kopf ---------- */
+    .head { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+    .status {
+        display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1;
+        font-size: 15px; font-weight: 600;
+    }
+    .status .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--tone); flex: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 22%, transparent); }
+    #tile.tone-bad .status .dot { animation: pulse 1.6s ease-in-out infinite; }
+    .status span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .auto {
+        flex: none; display: flex; align-items: center; gap: 6px;
+        border: 0; background: none; color: inherit; font: inherit; font-size: 12px; cursor: pointer; padding: 4px 0;
+    }
+    .auto .track { width: 30px; height: 18px; border-radius: 9px; background: var(--line); position: relative; transition: background .2s; }
+    .auto .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--fg); transition: transform .2s; }
+    .auto[aria-checked="true"] .track { background: var(--accent); }
+    .auto[aria-checked="true"] .track::after { transform: translateX(12px); background: #fff; }
+
+    /* ---------- Bühne: Hauswand mit Markise und Wetter ---------- */
+    .stage { position: relative; flex: 1 1 auto; min-height: 64px; }
+    .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+    .wall { fill: var(--well); stroke: var(--line); stroke-width: 1; }
+    .door { fill: none; stroke: var(--line); stroke-width: 1.5; }
+    .ground { stroke: var(--line); stroke-width: 1.5; }
+    .canvas-g {
+        transform-box: view-box; transform-origin: 40px 22px;
+        transform: scaleX(calc(.04 + var(--e) * .96));
+        opacity: min(1, calc(var(--e) * 6));
+        transition: transform var(--travel) linear, opacity var(--travel) linear;
+    }
+    .arm { stroke: var(--muted); stroke-width: 2; stroke-linecap: round; }
+    .cassette { fill: var(--fg); opacity: .8; }
+    .shade { fill: var(--fg); opacity: .12; }
+
+    .wx { transition: opacity .6s; opacity: 0; }
+    #tile.wx-sun .sun, #tile.wx-cloud .cloud, #tile.wx-wind .wind, #tile.wx-rain .rain, #tile.wx-rain .cloud,
+    #tile.wx-frost .frost, #tile.wx-night .moon { opacity: 1; }
+    .sun circle { fill: #f6c445; }
+    .sun line { stroke: #f6c445; stroke-width: 2; stroke-linecap: round; }
+    .sun .rays { transform-box: fill-box; transform-origin: center; animation: spin 40s linear infinite; }
+    .moon path { fill: color-mix(in srgb, var(--fg) 75%, transparent); }
+    .cloud path { fill: color-mix(in srgb, var(--fg) 40%, transparent); }
+    .wind path { fill: none; stroke: var(--bad); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 34 26; animation: gust 1.6s linear infinite; }
+    .wind path:nth-child(2) { animation-delay: .5s; }
+    .wind path:nth-child(3) { animation-delay: 1s; }
+    .rain line { stroke: var(--info); stroke-width: 2; stroke-linecap: round; animation: drop 1s linear infinite; }
+    .rain line:nth-child(2) { animation-delay: .3s; }
+    .rain line:nth-child(3) { animation-delay: .6s; }
+    .frost path { fill: none; stroke: #8fd3ff; stroke-width: 1.8; stroke-linecap: round; }
+
+    /* ---------- Text und Fortschritt ---------- */
+    .reason { color: var(--muted); font-size: 12.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .timer { display: none; gap: 4px; flex-direction: column; }
+    .timer.show { display: flex; }
+    .timer .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; }
+    .timer .row b { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+    .bar i { display: block; height: 100%; width: 0; background: var(--tone); transition: width 1s linear; }
+    .links { display: flex; gap: 12px; flex-wrap: wrap; }
+    .link { border: 0; background: none; padding: 2px 0; color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+
+    /* ---------- Sensoren (nur große Kacheln) ---------- */
+    .sensors { display: none; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+    .sensors li { display: grid; grid-template-columns: 1fr auto 16px; gap: 8px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+    .sensors .lbl small { color: var(--muted); margin-left: 6px; }
+    .sensors .val { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .sensors .mark { width: 8px; height: 8px; border-radius: 50%; justify-self: end; align-self: center; background: var(--ok); }
+    .sensors .mark.no { background: var(--bad); }
+    .sensors .mark.na { background: var(--off); }
+
+    /* ---------- Bedienung ---------- */
+    .ctrl { display: flex; gap: 6px; }
+    .ctrl button {
+        flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px;
+        border: 1px solid var(--line); border-radius: 10px; background: var(--well); color: inherit;
+        font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 0 6px;
+    }
+    .ctrl button svg { width: 14px; height: 14px; flex: none; }
+    .ctrl button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+    .ctrl button:disabled { opacity: .4; cursor: not-allowed; }
+    .ctrl button:active:not(:disabled) { transform: translateY(1px); }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    #stop[hidden] { display: none; }
+
+    .error { display: none; font-size: 13px; }
+    #tile.has-error .error { display: block; }
+    #tile.has-error .stage, #tile.has-error .ctrl, #tile.has-error .timer, #tile.has-error .reason { display: none; }
+
+    /* ---------- Größen ---------- */
+    @container (min-height: 340px) and (min-width: 260px) {
+        .sensors { display: block; }
+    }
+    @container (max-height: 210px) {
+        .reason { -webkit-line-clamp: 1; }
+        .links { display: none; }
+    }
+    @container (max-height: 150px) or (max-width: 170px) {
+        .stage, .reason, .timer { display: none; }
+        .ctrl button span { display: none; }
+        .auto .txt { display: none; }
+    }
+
+    /* ---------- Ruhe ---------- */
+    #tile.paused *, #tile.reduce * { animation-play-state: paused !important; }
+    #tile.reduce .canvas-g { transition: none; }
+    @media (prefers-reduced-motion: reduce) {
+        #tile * { animation: none !important; transition: none !important; }
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--tone) 10%, transparent); } }
+    @keyframes gust { from { stroke-dashoffset: 60; } to { stroke-dashoffset: 0; } }
+    @keyframes drop { from { transform: translateY(-4px); opacity: 0; } 30% { opacity: 1; } to { transform: translateY(10px); opacity: 0; } }
+</style>
+
+<div id="tile" class="tone-info">
+    <div class="head">
+        <div class="status" role="status" aria-live="polite"><i class="dot"></i><span id="statusText">…</span></div>
+        <button class="auto" id="auto" role="switch" aria-checked="false"><span class="txt" data-t="Automatic">Automatic</span><i class="track"></i></button>
+    </div>
+
+    <div class="error" id="error"></div>
+
+    <div class="stage" aria-hidden="true">
+        <svg viewBox="0 0 200 90" preserveAspectRatio="xMinYMid meet">
+            <defs>
+                <pattern id="stripes" width="16" height="10" patternUnits="userSpaceOnUse">
+                    <rect width="8" height="10" style="fill: var(--canvas-a)"></rect>
+                    <rect x="8" width="8" height="10" style="fill: var(--canvas-b)"></rect>
+                </pattern>
+            </defs>
+            <rect class="wall" x="0" y="4" width="40" height="80" rx="2"></rect>
+            <path class="door" d="M12 84 V48 H30 V84"></path>
+            <line class="ground" x1="0" y1="84" x2="200" y2="84"></line>
+            <g class="canvas-g">
+                <path class="shade" d="M40 82 H146 L150 85 H40 Z"></path>
+                <line class="arm" x1="40" y1="50" x2="146" y2="42"></line>
+                <!-- Tuch mit Volant; wird von der Wand aus aufgezogen -->
+                <path d="M40 22 L150 40 L150 46 L40 28 Z" fill="url(#stripes)"></path>
+                <path d="M150 40 v8 q-3.5 4 -7 0 q-3.5 4 -7 0 q-3.5 4 -7 0 q-3.5 4 -7 0 v-11.5 z" fill="url(#stripes)" opacity=".95"></path>
+            </g>
+            <rect class="cassette" x="38" y="18" width="8" height="7" rx="2"></rect>
+
+            <g class="wx sun"><circle cx="176" cy="18" r="8"></circle>
+                <g class="rays"><line x1="176" y1="3" x2="176" y2="6"></line><line x1="176" y1="30" x2="176" y2="33"></line><line x1="161" y1="18" x2="164" y2="18"></line><line x1="188" y1="18" x2="191" y2="18"></line><line x1="165.4" y1="7.4" x2="167.5" y2="9.5"></line><line x1="184.5" y1="26.5" x2="186.6" y2="28.6"></line><line x1="165.4" y1="28.6" x2="167.5" y2="26.5"></line><line x1="184.5" y1="9.5" x2="186.6" y2="7.4"></line></g>
+            </g>
+            <g class="wx moon"><path d="M180 8 a11 11 0 1 0 8 18 a9 9 0 1 1 -8 -18 z"></path></g>
+            <g class="wx cloud"><path d="M160 30 h28 a7 7 0 0 0 -2 -13.7 a10 10 0 0 0 -19 -2.3 a7.5 7.5 0 0 0 -7 16 z"></path></g>
+            <g class="wx wind"><path d="M130 52 h42 a6 6 0 1 0 -6 -6"></path><path d="M120 62 h58"></path><path d="M134 72 h34 a5 5 0 1 1 -5 5"></path></g>
+            <g class="wx rain"><line x1="166" y1="36" x2="164" y2="42"></line><line x1="175" y1="36" x2="173" y2="42"></line><line x1="184" y1="36" x2="182" y2="42"></line></g>
+            <g class="wx frost"><path d="M176 6 v24 M165.6 12 l20.8 12 M165.6 24 l20.8 -12 M172 8 l4 3 l4 -3 M172 28 l4 -3 l4 3"></path></g>
+        </svg>
+    </div>
+
+    <div class="reason" id="reason"></div>
+
+    <div class="timer" id="timer">
+        <div class="row"><span id="timerLabel"></span><b id="timerValue"></b></div>
+        <div class="bar"><i id="timerBar"></i></div>
+        <div class="links" id="links"></div>
+    </div>
+
+    <ul class="sensors" id="sensors"></ul>
+
+    <div class="ctrl">
+        <button id="retract" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3 L14 10 H2 Z" fill="currentColor"></path></svg><span data-t="Retract">Retract</span></button>
+        <button id="stop" type="button" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor"></rect></svg><span data-t="Stop">Stop</span></button>
+        <button id="extend" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13 L14 6 H2 Z" fill="currentColor"></path></svg><span data-t="Extend">Extend</span></button>
+    </div>
+</div>
+
+<script>
+    (function () {
+        'use strict';
+
+        var $ = function (id) { return document.getElementById(id); };
+        var tile = $('tile');
+        var last = null;
+        var offset = 0;     // Serverzeit minus Tablet-Zeit (Sekunden)
+        var tick = 0;
+
+        function t(s) {
+            return typeof window.translate === 'function' ? window.translate(s) : s;
+        }
+
+        function send(ident, value) {
+            if (typeof window.requestAction === 'function') {
+                window.requestAction(ident, value);
+            }
+        }
+
+        function now() {
+            return Math.floor(Date.now() / 1000) + offset;
+        }
+
+        function fmt(sec) {
+            sec = Math.max(0, Math.round(sec));
+            var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+            var mm = (m < 10 && h ? '0' : '') + m, ss = (s < 10 ? '0' : '') + s;
+            return h ? h + ':' + mm + ':' + ss : mm + ':' + ss;
+        }
+
+        function clockText(ts) {
+            var d = new Date((ts - offset) * 1000);
+            return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
+        }
+
+        function link(text, ident) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'link';
+            b.textContent = t(text);
+            b.addEventListener('click', function () { send(ident, 0); });
+            return b;
+        }
+
+        // Ausfahrgrad aus Zustand bzw. Position
+        function extension(d) {
+            if (d.hasPosition && typeof d.position === 'number') return d.position / 100;
+            switch (d.state) {
+                case 2: case 3: return 1;
+                case 4: return 0.5;
+                default: return 0;
+            }
+        }
+
+        function weather(d) {
+            var s = d.status;
+            if (s === 9) return 'wind';
+            if (s === 10) return 'rain';
+            if (s === 11) return 'frost';
+            if (d.sun && !d.sun.day) return 'night';
+            if (s === 2) return 'sun';
+            return 'cloud';
+        }
+
+        function render(d) {
+            last = d;
+            if (typeof d.now === 'number') offset = d.now - Math.floor(Date.now() / 1000);
+
+            var cls = ['tone-' + (d.tone || 'info'), 'wx-' + weather(d)];
+            if (d.theme === 1) cls.push('theme-dark');
+            if (d.theme === 2) cls.push('theme-light');
+            if (d.reduce) cls.push('reduce');
+            if (d.error) cls.push('has-error');
+            if (tile.classList.contains('paused')) cls.push('paused');
+            tile.className = cls.join(' ');
+
+            $('error').textContent = d.error || '';
+            $('statusText').textContent = d.error ? t('Not configured') : (d.statusText || '');
+            $('reason').textContent = d.reason || '';
+
+            var auto = $('auto');
+            auto.setAttribute('aria-checked', d.automatic ? 'true' : 'false');
+            auto.title = t(d.automatic ? 'Switch automatic off' : 'Switch automatic on');
+
+            // Bewegung über die Fahrzeit der Markise darstellen
+            tile.style.setProperty('--travel', (d.state === 1 || d.state === 2 ? d.travel : 1.2) + 's');
+            tile.style.setProperty('--e', String(extension(d)));
+
+            $('stop').hidden = !d.canStop;
+            var out = d.state === 2 || d.state === 3;
+            var inn = d.state === 0 || d.state === 1;
+            $('extend').classList.toggle('on', out);
+            $('retract').classList.toggle('on', inn);
+            $('extend').disabled = !!d.safety;
+            $('extend').title = d.safety ? (d.reason || '') : '';
+
+            renderSensors(d.sensors || []);
+            renderTimer();
+        }
+
+        function renderSensors(list) {
+            var ul = $('sensors');
+            ul.textContent = '';
+            list.forEach(function (s) {
+                var li = document.createElement('li');
+                var lbl = document.createElement('span');
+                lbl.className = 'lbl';
+                lbl.textContent = s.label;
+                if (s.limit || s.note) {
+                    var small = document.createElement('small');
+                    small.textContent = s.note || s.limit;
+                    lbl.appendChild(small);
+                }
+                var val = document.createElement('span');
+                val.className = 'val';
+                val.textContent = s.value;
+                var mark = document.createElement('i');
+                mark.className = 'mark' + (s.ok === false ? ' no' : (s.ok === null ? ' na' : ''));
+                li.appendChild(lbl);
+                li.appendChild(val);
+                li.appendChild(mark);
+                ul.appendChild(li);
+            });
+        }
+
+        // Ein Countdown zur Zeit, wichtigster zuerst: Sperre → Handbetrieb → Karenz
+        function renderTimer() {
+            var d = last;
+            var box = $('timer');
+            var links = $('links');
+            links.textContent = '';
+            if (!d || d.error) { box.classList.remove('show'); return; }
+
+            var n = now(), label = '', left = 0, total = 0;
+            if (d.lockUntil > n) {
+                label = t(d.status === 10 ? 'Rain lock' : 'Wind lock');
+                left = d.lockUntil - n;
+                total = Math.max(left, 60);
+            } else if (d.manualUntil > n) {
+                label = t('Automatic paused until') + ' ' + clockText(d.manualUntil);
+                left = d.manualUntil - n;
+                total = Math.max(left, 60);
+                links.appendChild(link('Resume automatic', 'EndManual'));
+            } else if (d.present === false && d.graceTotal > 0) {
+                left = Math.max(0, (d.graceEnd || 0) - n);
+                total = d.graceTotal;
+                label = left > 0 ? t('Absent, grace period') : t('Absent, grace period expired');
+                links.appendChild(link('Restart grace period', 'RestartGrace'));
+                if (left > 0) links.appendChild(link('End grace period', 'EndGrace'));
+            }
+
+            if (!label) { box.classList.remove('show'); return; }
+            box.classList.add('show');
+            $('timerLabel').textContent = label;
+            $('timerValue').textContent = fmt(left);
+            $('timerBar').style.width = (total > 0 ? Math.min(100, left / total * 100) : 0).toFixed(1) + '%';
+        }
+
+        $('auto').addEventListener('click', function () {
+            if (last) send('Automatic', !last.automatic);
+        });
+        $('retract').addEventListener('click', function () { send('Control', 0); });
+        $('stop').addEventListener('click', function () { send('Control', 1); });
+        $('extend').addEventListener('click', function () { send('Control', 2); });
+
+        // Statische Texte übersetzen
+        Array.prototype.forEach.call(document.querySelectorAll('[data-t]'), function (el) {
+            el.textContent = t(el.getAttribute('data-t'));
+        });
+
+        // Countdown nur, solange die Kachel sichtbar ist
+        var inView = true;
+        function updatePause() {
+            var p = document.hidden || !inView;
+            tile.classList.toggle('paused', p);
+            clearInterval(tick);
+            if (!p) {
+                renderTimer();
+                tick = setInterval(renderTimer, 1000);
+            }
+        }
+        document.addEventListener('visibilitychange', updatePause);
+        if (window.IntersectionObserver) {
+            new IntersectionObserver(function (entries) {
+                inView = entries[0].isIntersecting;
+                updatePause();
+            }).observe(tile);
+        }
+
+        // Wird von IP-Symcon bei UpdateVisualizationValue() aufgerufen
+        window.handleMessage = function (data) {
+            try {
+                render(typeof data === 'string' ? JSON.parse(data) : data);
+            } catch (e) {
+                console.error('Markisen-Kachel:', e);
+            }
+        };
+
+        var initial = /*INITIAL_DATA*/null;
+        if (initial) {
+            window.handleMessage(initial);
+        }
+        updatePause();
+    })();
+</script>

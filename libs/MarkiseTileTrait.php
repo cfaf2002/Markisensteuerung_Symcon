@@ -1,0 +1,174 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Markisensteuerung – IP-Symcon-Modul für die automatische Markisensteuerung
+ *
+ * @author    Armin Frohwerk
+ * @copyright 2026 Armin Frohwerk
+ * @license   MIT – siehe Datei LICENSE im Hauptverzeichnis
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
+ * Kachel für die Kachel-Visualisierung (HTML-SDK).
+ * Die Kachel bekommt nur Daten (JSON) und baut alles mit textContent auf – kein HTML aus Variablen.
+ */
+trait MarkiseTileTrait
+{
+    /**
+     * Liefert das HTML der Kachel (wird von der Visualisierung einmal geladen).
+     */
+    public function GetVisualizationTile(): string
+    {
+        $html = (string) file_get_contents(__DIR__ . '/../Markisensteuerung/tile.html');
+        $initial = json_decode($this->ReadAttributeString('TileData'), true) ?: [];
+        $initial['now'] = $this->Now();
+        // Als Objekt eingesetzt; JSON_HEX_* verhindert, dass Werte wie "</script>" das Skript der Kachel beenden
+        $json = json_encode($initial, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        return str_replace('/*INITIAL_DATA*/null', (string) $json, $html);
+    }
+
+    /**
+     * Baut die Kacheldaten und sendet sie, wenn sich etwas geändert hat.
+     * Ohne Bewertung (null) werden nur Zustand und Bedienung aktualisiert.
+     */
+    protected function PushTileState(?array $ctx = null, ?array $result = null): void
+    {
+        $data = json_decode($this->ReadAttributeString('TileData'), true) ?: [];
+        $status = $this->GetStatus();
+
+        $data['theme'] = $this->ReadPropertyInteger('TileTheme');
+        $data['reduce'] = $this->ReadPropertyBoolean('TileReduceMotion');
+        $data['instanceStatus'] = $status;
+        $data['error'] = $this->ConfigError($status);
+        $data['canStop'] = $this->CanStop();
+        $data['hasPosition'] = $this->ReadPropertyInteger('ActuatorMode') === 2;
+        $data['automatic'] = (bool) $this->GetValue('Automatic');
+        $data['state'] = (int) $this->GetValue('State');
+        $data['position'] = $data['hasPosition'] ? (int) $this->GetValue('Position') : null;
+        $data['travel'] = max(1, $this->ReadPropertyInteger('TravelTime'));
+        $data['manualUntil'] = $this->ReadAttributeInteger('ManualUntil');
+        $lock = max($this->ReadAttributeInteger('WindLockUntil'), $this->ReadAttributeInteger('RainLockUntil'));
+        $data['lockUntil'] = $lock > $this->Now() ? $lock : 0;
+
+        if ($ctx !== null && $result !== null) {
+            $data['status'] = $result['status'];
+            $data['tone'] = self::Tone($result['status']);
+            $data['reason'] = $result['reason'];
+            $data['safety'] = $result['safety'] !== '';
+            $data['present'] = $ctx['hasPresence'] ? $ctx['present'] : null;
+            $data['graceEnd'] = $ctx['absentSince'] > 0 ? $ctx['absentSince'] + $ctx['graceTotal'] : 0;
+            $data['graceTotal'] = $ctx['graceTotal'];
+            // nur Tag/Nacht – der genaue Sonnenstand würde die Kachel jede Minute neu zeichnen
+            $data['sun'] = $ctx['sun'] === null ? null : ['day' => $ctx['isDay']];
+            $data['today'] = $this->Translate(self::WEEKDAYS[$ctx['weekday']]);
+            $data['todayOn'] = $this->ReadPropertyBoolean('Weekday' . $ctx['weekday']);
+            $data['sensors'] = $this->TileSensors($ctx);
+        }
+        $data['statusText'] = $this->StatusText((int) ($data['status'] ?? self::ST_WAITING));
+
+        $json = json_encode($data);
+        if ($json === $this->ReadAttributeString('TileData')) {
+            return; // unverändert: nichts an die Visualisierung schicken
+        }
+        $this->WriteAttributeString('TileData', $json);
+        if ($this->ReadPropertyBoolean('UseTile')) {
+            // Serverzeit mitschicken, damit Countdowns auch bei falsch gehender Tablet-Uhr stimmen
+            $data['now'] = $this->Now();
+            $this->UpdateVisualizationValue(json_encode($data));
+        }
+    }
+
+    private function TileSensors(array $c): array
+    {
+        $list = [];
+        $wu = $this->UnitSuffix($this->ReadPropertyInteger('WindUnit'));
+        $gu = $this->UnitSuffix($this->ReadPropertyInteger('GustUnit'));
+        if ($c['lux'] !== null) {
+            $list[] = [
+                'k'     => 'lux',
+                'label' => $this->Translate('Brightness'),
+                // auf 100 lx gerundet: weniger Kachel-Updates bei unruhigem Sensor
+                'value' => $this->Thousands($c['lux'] >= 1000 ? round($c['lux'], -2) : $c['lux']) . ' lx',
+                'limit' => '≥ ' . $this->Thousands((float) $this->ReadPropertyInteger('LuxOn')) . ' lx',
+                'ok'    => $c['luxFrozen'] ? false : $c['lux'] >= $this->ReadPropertyInteger('LuxOn'),
+                'note'  => $c['luxFrozen'] ? $this->Translate('frozen') : '',
+            ];
+        }
+        if ($c['temp'] !== null) {
+            $list[] = [
+                'k'     => 'temp',
+                'label' => $this->Translate('Temperature'),
+                'value' => $this->Num($c['temp']) . ' °C',
+                'limit' => '≥ ' . $this->Num($this->ReadPropertyFloat('TempMin')) . ' °C',
+                'ok'    => $c['temp'] >= $this->ReadPropertyFloat('TempMin'),
+                'note'  => '',
+            ];
+        }
+        if ($c['wind'] !== null) {
+            $list[] = [
+                'k'     => 'wind',
+                'label' => $this->Translate('Wind'),
+                'value' => $this->Num($c['wind']) . $wu,
+                'limit' => '≤ ' . $this->Num($this->ReadPropertyFloat('WindMax')) . $wu . ', ' . $this->Translate('alarm') . ' ' . $this->Num($this->ReadPropertyFloat('WindAlarm')) . $wu,
+                'ok'    => $c['windStale'] ? false : $c['wind'] <= $this->ReadPropertyFloat('WindMax'),
+                'note'  => $c['windStale'] ? $this->Translate('no values') : '',
+            ];
+        }
+        if ($c['gust'] !== null) {
+            $list[] = [
+                'k'     => 'gust',
+                'label' => $this->Translate('Gusts'),
+                'value' => $this->Num($c['gust']) . $gu,
+                'limit' => '< ' . $this->Num($this->ReadPropertyFloat('GustAlarm')) . $gu,
+                'ok'    => $c['gust'] < $this->ReadPropertyFloat('GustAlarm'),
+                'note'  => '',
+            ];
+        }
+        if ($c['rain'] !== null) {
+            $list[] = [
+                'k'     => 'rain',
+                'label' => $this->Translate('Rain'),
+                'value' => $c['rain'] > 0 ? $this->Translate('yes') : $this->Translate('no'),
+                'limit' => '',
+                'ok'    => $c['rain'] <= 0,
+                'note'  => '',
+            ];
+        }
+        return $list;
+    }
+
+    private function StatusText(int $status): string
+    {
+        foreach ($this->StatusOptions() as $o) {
+            if ($o['Value'] === $status) {
+                return $o['Caption'];
+            }
+        }
+        return '';
+    }
+
+    private static function Tone(int $status): string
+    {
+        return match ($status) {
+            self::ST_SUN => 'ok',
+            self::ST_WIND, self::ST_RAIN, self::ST_FROST, self::ST_SENSOR => 'bad',
+            self::ST_OFF, self::ST_WEEKDAY, self::ST_NIGHT, self::ST_TIME => 'off',
+            default => 'info',
+        };
+    }
+
+    private function ConfigError(int $status): string
+    {
+        return match ($status) {
+            104     => $this->Translate('Please select the actuator variables in the instance.'),
+            201     => $this->Translate('An actuator variable is missing or has no action.'),
+            202     => $this->Translate('A sensor variable does not exist.'),
+            203     => $this->Translate('The brightness to retract must not be higher than the brightness to extend.'),
+            default => '',
+        };
+    }
+}
