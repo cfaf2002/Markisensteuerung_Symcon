@@ -104,6 +104,10 @@ Fehlt ein Sensor, wird die zugehörige Bedingung nicht geprüft. Ohne Windsensor
 
 ## 5. Einstellungen
 
+### Instanz aktiv
+
+Ganz oben in der Instanz. Ausgeschaltet macht die Instanz gar nichts mehr: keine Befehle, auch keine Sicherheitsfahrten, keine Timer. Die Kachel zeigt „Inaktiv“. Variablen und Einstellungen bleiben erhalten. Zum Abschalten der Sonnenautomatik bei laufendem Windschutz ist stattdessen die Variable „Automatik“ gedacht.
+
 ### Ansteuerung
 
 | Einstellung | Standard | Beschreibung |
@@ -168,7 +172,8 @@ Push-Nachricht bei Sicherheitsalarm, bei jeder automatischen Fahrt, Ziel-Visuali
 | Code | Bedeutung |
 |---|---|
 | 102 | Aktiv |
-| 104 | Bitte Aktorvariablen auswählen |
+| 104 | Instanz ist inaktiv (Schalter „Instanz aktiv“ aus) |
+| 200 | Bitte Aktorvariablen auswählen |
 | 201 | Eine Aktorvariable fehlt oder hat keine Aktion |
 | 202 | Eine Sensorvariable existiert nicht |
 | 203 | Helligkeit zum Einfahren ist höher als zum Ausfahren |
@@ -302,7 +307,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
-| 1.0 | 2 | 04.10.2026 | Modul erscheint unter „Instanz hinzufügen“ nur noch einmal (überzählige Aliase entfernt) |
+| 1.0 | 2 | 04.10.2026 | Schalter „Instanz aktiv“, Hersteller eingetragen |
 | 1.0 | 1 | 04.10.2026 | Erste Version als Modul, abgelöst vom bisherigen Markisen-Skript |
 
 ## 13. Lizenz

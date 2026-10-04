@@ -5,6 +5,11 @@
             "caption": "Controls an awning automatically by sun, wind, rain, temperature and presence. Safety (wind, gusts, rain, frost, sensor fault) always comes first."
         },
         {
+            "type": "CheckBox",
+            "name": "Active",
+            "caption": "Instance active"
+        },
+        {
             "type": "ExpansionPanel",
             "caption": "Actuator",
             "expanded": true,
@@ -611,6 +616,11 @@
         {
             "code": 104,
             "icon": "inactive",
+            "caption": "Instance is inactive"
+        },
+        {
+            "code": 200,
+            "icon": "error",
             "caption": "Please select the actuator variables"
         },
         {

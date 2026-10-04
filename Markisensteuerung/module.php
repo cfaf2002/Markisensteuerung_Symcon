@@ -75,6 +75,9 @@ class Markisensteuerung extends IPSModuleStrict
         // Never delete this line!
         parent::Create();
 
+        // Instanz aktiv / nicht aktiv
+        $this->RegisterPropertyBoolean('Active', true);
+
         // Ansteuerung
         $this->RegisterPropertyInteger('ActuatorMode', 0);
         $this->RegisterPropertyInteger('ExtendVariableID', 0);
@@ -187,9 +190,14 @@ class Markisensteuerung extends IPSModuleStrict
         $this->MaintainVariables();
         $this->WatchVariables();
 
-        $status = $this->CheckConfiguration();
+        $status = $this->ReadPropertyBoolean('Active') ? $this->CheckConfiguration() : 104;
         $this->SetStatus($status);
         $this->SetTimerInterval('Tick', $status === 102 ? 60000 : 0);
+        if ($status !== 102) {
+            // Inaktiv oder nicht eingerichtet: keine laufenden Wiederholungen oder Fahrzeit-Timer
+            $this->SetTimerInterval('Repeat', 0);
+            $this->SetTimerInterval('Travel', 0);
+        }
 
         if ($status === 102) {
             $this->EvaluateNow('apply');
@@ -691,6 +699,10 @@ class Markisensteuerung extends IPSModuleStrict
      */
     private function ManualOperation(string $command, bool $send): bool
     {
+        if ($this->GetStatus() !== 102) {
+            echo $this->Translate('The instance is inactive or not configured.');
+            return false;
+        }
         if ($send && $command === 'extend') {
             $safety = $this->ReadAttributeString('SafetyReason');
             if ($safety !== '') {
@@ -722,6 +734,10 @@ class Markisensteuerung extends IPSModuleStrict
     {
         if ($this->ReadPropertyInteger('ActuatorMode') !== 2) {
             throw new InvalidArgumentException('Position ist nur mit einer Positionsvariable verfügbar.');
+        }
+        if ($this->GetStatus() !== 102) {
+            echo $this->Translate('The instance is inactive or not configured.');
+            return;
         }
         $percent = max(0, min(100, $percent));
         $retracted = $this->ReadPropertyInteger('PositionRetracted');
@@ -1089,11 +1105,11 @@ class Markisensteuerung extends IPSModuleStrict
             default => [],
         };
         if ($required === []) {
-            return 104;
+            return 200;
         }
         foreach ($required as $prop) {
             if ($this->ReadPropertyInteger($prop) <= 0) {
-                return 104;
+                return 200;
             }
         }
         $actuators = $required;

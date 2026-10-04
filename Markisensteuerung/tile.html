@@ -294,12 +294,12 @@
             if (d.theme === 1) cls.push('theme-dark');
             if (d.theme === 2) cls.push('theme-light');
             if (d.reduce) cls.push('reduce');
-            if (d.error) cls.push('has-error');
+            if (d.error) cls.push('has-error', 'tone-off');
             if (tile.classList.contains('paused')) cls.push('paused');
             tile.className = cls.join(' ');
 
             $('error').textContent = d.error || '';
-            $('statusText').textContent = d.error ? t('Not configured') : (d.statusText || '');
+            $('statusText').textContent = d.error ? (d.errorTitle || '') : (d.statusText || '');
             $('reason').textContent = d.reason || '';
 
             var auto = $('auto');

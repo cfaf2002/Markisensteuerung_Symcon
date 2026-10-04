@@ -44,6 +44,7 @@ trait MarkiseTileTrait
         $data['reduce'] = $this->ReadPropertyBoolean('TileReduceMotion');
         $data['instanceStatus'] = $status;
         $data['error'] = $this->ConfigError($status);
+        $data['errorTitle'] = $status === 104 ? $this->Translate('Inactive') : $this->Translate('Not configured');
         $data['canStop'] = $this->CanStop();
         $data['hasPosition'] = $this->ReadPropertyInteger('ActuatorMode') === 2;
         $data['automatic'] = (bool) $this->GetValue('Automatic');
@@ -164,7 +165,8 @@ trait MarkiseTileTrait
     private function ConfigError(int $status): string
     {
         return match ($status) {
-            104     => $this->Translate('Please select the actuator variables in the instance.'),
+            104     => $this->Translate('The instance is switched off. Switch it on in the instance settings.'),
+            200     => $this->Translate('Please select the actuator variables in the instance.'),
             201     => $this->Translate('An actuator variable is missing or has no action.'),
             202     => $this->Translate('A sensor variable does not exist.'),
             203     => $this->Translate('The brightness to retract must not be higher than the brightness to extend.'),

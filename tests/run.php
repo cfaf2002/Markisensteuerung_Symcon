@@ -126,13 +126,34 @@ function lastAction(): string
 
 // =====================================================================
 
-test('Ohne Aktor: Status 104, keine Aktion', function (): void {
+test('Ohne Aktor: Status 200, keine Aktion', function (): void {
     $m = markise(['ExtendVariableID' => 0]);
-    check($m->status === 104, 'Status 104 (ist ' . $m->status . ')');
+    check($m->status === 200, 'Status 200 (ist ' . $m->status . ')');
     check(Sym::$actions === [], 'keine Aktion');
     check($m->timers['Tick']['ms'] === 0, 'Timer aus');
     $tile = json_decode($m->attr('TileData'), true);
     check(($tile['error'] ?? '') !== '', 'Kachel zeigt Hinweis');
+});
+
+test('Instanz nicht aktiv: Status 104, nichts passiert', function (): void {
+    $m = markise(['Active' => false]);
+    check($m->status === 104, 'Status 104 (ist ' . $m->status . ')');
+    check(Sym::$actions === [], 'kein Befehl trotz Sonne');
+    check($m->timers['Tick']['ms'] === 0, 'Timer aus');
+    $m->sensor(V_WIND, 9);
+    check(Sym::$actions === [], 'auch Sensoränderungen lösen nichts aus');
+    check($m->Evaluate() === false, 'MARKISE_Evaluate meldet false');
+    ob_start();
+    $ok = $m->Extend();
+    ob_end_clean();
+    check($ok === false && Sym::$actions === [], 'auch von Hand kein Befehl');
+    $tile = json_decode($m->attr('TileData'), true);
+    check(($tile['errorTitle'] ?? '') === 'Inaktiv', 'Kachel zeigt „Inaktiv“');
+    $m->prop('Active', true);
+    $m->sensor(V_WIND, 2);
+    $m->ApplyChanges();
+    check($m->status === 102, 'wieder aktiv: Status 102');
+    check(actions() === [V_EXTEND . '=true'], 'wieder aktiv: Automatik arbeitet');
 });
 
 test('Aktorvariable ohne Aktion: Status 201', function (): void {

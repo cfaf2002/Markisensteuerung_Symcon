@@ -75,7 +75,7 @@ try {
     ok($id > 0, 'Instanz angelegt');
     $form = json_decode(IPS_GetConfigurationForm($id), true);
     ok(is_array($form) && isset($form['elements']), 'Formular ist gültiges JSON');
-    ok(IPS_GetInstance($id)['InstanceStatus'] === 104, 'Ohne Aktor Status 104');
+    ok(IPS_GetInstance($id)['InstanceStatus'] === 200, 'Ohne Aktor Status 200');
     ok(str_contains(MARKISE_GetVisualizationTile($id), 'window.handleMessage'), 'Kachel-HTML auch ohne Einrichtung');
 
     // Aktionsskript wie bei einem Gateway: setzt einfach den Wert
@@ -96,6 +96,11 @@ try {
     IPS_ApplyChanges($id);
 
     ok(IPS_GetInstance($id)['InstanceStatus'] === 102, 'Mit Aktor Status 102');
+    IPS_SetProperty($id, 'Active', false);
+    IPS_ApplyChanges($id);
+    ok(IPS_GetInstance($id)['InstanceStatus'] === 104, 'Nicht aktiv: Status 104');
+    IPS_SetProperty($id, 'Active', true);
+    IPS_ApplyChanges($id);
     foreach (['Automatic', 'Control', 'State', 'Status', 'Reason', 'Safety', 'SetLuxOn'] as $ident) {
         ok(@IPS_GetObjectIDByIdent($ident, $id) !== false, 'Variable ' . $ident);
     }
