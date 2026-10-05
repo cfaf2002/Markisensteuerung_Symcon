@@ -66,8 +66,12 @@ trait MarkiseTileTrait
             $data['present'] = $ctx['hasPresence'] ? $ctx['present'] : null;
             $data['graceEnd'] = $ctx['absentSince'] > 0 ? $ctx['absentSince'] + $ctx['graceTotal'] : 0;
             $data['graceTotal'] = $ctx['graceTotal'];
-            // nur Tag/Nacht – der genaue Sonnenstand würde die Kachel jede Minute neu zeichnen
-            $data['sun'] = $ctx['sun'] === null ? null : ['day' => $ctx['isDay']];
+            // nur Tag/Nacht/Abend – der genaue Sonnenstand würde die Kachel jede Minute neu zeichnen
+            $data['sun'] = $ctx['sun'] === null ? null : ['day' => $ctx['isDay'], 'eve' => $ctx['isDay'] && $ctx['sun']['elevation'] < 12];
+            // Sonne im Bild, sobald es tagsüber hell genug ist (auch wenn die Markise noch wartet)
+            $lux = $ctx['luxAvg'] ?? $ctx['lux'];
+            $data['sunny'] = $ctx['isDay'] && ($lux === null || $lux >= min($this->ReadPropertyInteger('LuxOn'), $this->ReadPropertyInteger('LuxOff')));
+            $data['door'] = $this->DoorClosed();
             $data['today'] = $this->Translate(self::WEEKDAYS[$ctx['weekday']]);
             $data['todayOn'] = $this->ReadPropertyBoolean('Weekday' . $ctx['weekday']);
             $data['sensors'] = $this->TileSensors($ctx);

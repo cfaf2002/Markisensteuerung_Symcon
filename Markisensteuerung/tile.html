@@ -70,37 +70,116 @@
     .auto[aria-checked="true"] .track { background: var(--accent); }
     .auto[aria-checked="true"] .track::after { transform: translateX(12px); background: #fff; }
 
-    /* ---------- Bühne: Hauswand mit Markise und Wetter ---------- */
-    .stage { position: relative; flex: 1 1 auto; min-height: 64px; }
-    .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-    .wall { fill: var(--well); stroke: var(--line); stroke-width: 1; }
-    .door { fill: none; stroke: var(--line); stroke-width: 1.5; }
-    .ground { stroke: var(--line); stroke-width: 1.5; }
-    .canvas-g {
-        transform-box: view-box; transform-origin: 40px 22px;
-        transform: scaleX(calc(.04 + var(--e) * .96));
-        opacity: min(1, calc(var(--e) * 6));
-        transition: transform var(--travel) linear, opacity var(--travel) linear;
+    /* ---------- Bühne: Garten-Panorama mit Haus, Markise und Wetter ---------- */
+    .stage {
+        position: relative; flex: 1 1 auto; min-height: 70px;
+        border-radius: 14px; overflow: hidden;
+        box-shadow: inset 0 0 0 1px var(--line);
+        /* Fläche über der Szene bei hohen, schmalen Kacheln: gleiche Farbe wie der obere Himmel */
+        background: #3f8fe0; transition: background-color 1.2s ease;
     }
-    .arm { stroke: var(--muted); stroke-width: 2; stroke-linecap: round; }
-    .cassette { fill: var(--fg); opacity: .8; }
-    .shade { fill: var(--fg); opacity: .12; }
+    #tile.wx-sun.eve .stage { background: #4a5fa8; }
+    #tile.wx-cloud .stage { background: #7f97ae; }
+    #tile.wx-night .stage { background: #07122a; }
+    #tile.wx-rain .stage, #tile.wx-wind .stage, #tile.wx-storm .stage { background: #3d4a58; }
+    #tile.wx-frost .stage { background: #9fb7cc; }
+    .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
-    .wx { transition: opacity .6s; opacity: 0; }
-    #tile.wx-sun .sun, #tile.wx-cloud .cloud, #tile.wx-wind .wind, #tile.wx-rain .rain, #tile.wx-rain .cloud,
-    #tile.wx-frost .frost, #tile.wx-night .moon { opacity: 1; }
-    .sun circle { fill: #f6c445; }
-    .sun line { stroke: #f6c445; stroke-width: 2; stroke-linecap: round; }
-    .sun .rays { transform-box: fill-box; transform-origin: center; animation: spin 40s linear infinite; }
-    .moon path { fill: color-mix(in srgb, var(--fg) 75%, transparent); }
-    .cloud path { fill: color-mix(in srgb, var(--fg) 40%, transparent); }
-    .wind path { fill: none; stroke: var(--bad); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 34 26; animation: gust 1.6s linear infinite; }
-    .wind path:nth-child(2) { animation-delay: .5s; }
-    .wind path:nth-child(3) { animation-delay: 1s; }
-    .rain line { stroke: var(--info); stroke-width: 2; stroke-linecap: round; animation: drop 1s linear infinite; }
-    .rain line:nth-child(2) { animation-delay: .3s; }
-    .rain line:nth-child(3) { animation-delay: .6s; }
-    .frost path { fill: none; stroke: #8fd3ff; stroke-width: 1.8; stroke-linecap: round; }
+    /* Himmel: weich überblendet je nach Wetter und Tageszeit */
+    .sky { opacity: 0; transition: opacity 1.2s ease; }
+    #tile.wx-sun .sky-day, #tile.wx-cloud .sky-grey, #tile.wx-night .sky-night,
+    #tile.wx-rain .sky-storm, #tile.wx-wind .sky-storm, #tile.wx-storm .sky-storm, #tile.wx-frost .sky-cold { opacity: 1; }
+    #tile.wx-sun.eve .sky-day { opacity: 0; }
+    #tile.wx-sun.eve .sky-eve { opacity: 1; }
+
+    .wx { opacity: 0; transition: opacity .9s ease; }
+    #tile.wx-sun .sun, #tile.wx-sun .birds, #tile.wx-sun .fair, #tile.wx-cloud .fair, #tile.wx-cloud .sun.behind,
+    #tile.wx-cloud .overcast, #tile.wx-night .moon, #tile.wx-night .stars,
+    #tile.wx-rain .storm, #tile.wx-rain .rain, #tile.wx-storm .storm, #tile.wx-storm .rain, #tile.wx-storm .bolt,
+    #tile.wx-wind .storm, #tile.wx-wind .wind, #tile.wx-frost .overcast, #tile.wx-frost .snow { opacity: 1; }
+    #tile.wx-cloud .sun.behind { opacity: .55; }
+
+    /* Sonne */
+    .sun .glow { fill: url(#sunGlow); transform-box: fill-box; transform-origin: center; animation: breathe 6s ease-in-out infinite; }
+    .sun .core { fill: url(#sunCore); }
+    .sun .rays { transform-box: fill-box; transform-origin: center; animation: spin 60s linear infinite; }
+    .sun .rays path { stroke: #ffd36b; stroke-width: 2.4; stroke-linecap: round; opacity: .85; }
+
+    /* Wolken ziehen langsam durch; jede Wolke mit eigener Geschwindigkeit */
+    .cl { fill: url(#cloudWhite); }
+    .cl.dark { fill: url(#cloudDark); }
+    .drift { animation: drift linear infinite; }
+    .d1 { animation-duration: 95s; animation-delay: -20s; }
+    .d2 { animation-duration: 140s; animation-delay: -75s; }
+    .d3 { animation-duration: 120s; animation-delay: -40s; }
+    .d4 { animation-duration: 70s; animation-delay: -10s; }
+    .d5 { animation-duration: 85s; animation-delay: -55s; }
+
+    /* Vögel: fliegen quer über den Himmel und schlagen mit den Flügeln */
+    .bird { animation: fly linear infinite; }
+    .bird path { fill: none; stroke: #2d3a48; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; transform-box: fill-box; transform-origin: center; animation: flap .55s ease-in-out infinite alternate; }
+    .b1 { animation-duration: 26s; }
+    .b2 { animation-duration: 31s; animation-delay: -9s; }
+    .b2 path { animation-delay: -.2s; }
+    .b3 { animation-duration: 29s; animation-delay: -17s; }
+    .b3 path { animation-delay: -.35s; }
+
+    /* Nacht */
+    .moon .disc { fill: #f3efe0; }
+    .moon .halo { fill: url(#moonGlow); }
+    .stars circle { fill: #fff; animation: twinkle 3s ease-in-out infinite alternate; }
+    .stars circle:nth-child(2n) { animation-delay: -1.2s; }
+    .stars circle:nth-child(3n) { animation-delay: -2.1s; }
+
+    /* Regen, Wind, Schnee, Gewitter */
+    .rain line { stroke: #9cc8f5; stroke-width: 1.3; stroke-linecap: round; animation: drop .8s linear infinite; }
+    .rain line:nth-child(3n) { animation-delay: -.25s; }
+    .rain line:nth-child(3n+1) { animation-delay: -.55s; }
+    .wind path { fill: none; stroke: rgba(255, 255, 255, .75); stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 40 80; animation: gust 2.2s linear infinite; }
+    .wind path:nth-child(2) { animation-delay: -.7s; }
+    .wind path:nth-child(3) { animation-delay: -1.4s; }
+    .wind .leaf { fill: #7fb04a; stroke: none; animation: leaf 3.5s linear infinite; stroke-dasharray: none; }
+    .wind .leaf:nth-of-type(2) { animation-delay: -1.7s; }
+    .snow circle { fill: #fff; animation: snow 4s linear infinite; }
+    .snow circle:nth-child(2n) { animation-duration: 5.5s; animation-delay: -2s; }
+    .snow circle:nth-child(3n) { animation-delay: -3.1s; }
+    .bolt path { fill: #ffe066; filter: drop-shadow(0 0 4px #fff3b0); animation: flash 4s steps(1) infinite; }
+
+    /* Haus und Garten */
+    .wall { fill: url(#wallGrad); }
+    .siding { stroke: rgba(80, 60, 40, .12); stroke-width: 1; }
+    .window-frame { fill: #f4f1ea; }
+    .window-glass { fill: url(#glass); }
+    .door-frame { fill: #3b2f26; }
+    .door-leaf { fill: url(#doorGrad); transform-box: fill-box; transform-origin: left center; transition: transform 1s ease; }
+    #tile.door-open .door-leaf { transform: scaleX(.28); }
+    .door-inside { fill: #2a2119; }
+
+    /* Nacht und Unwetter dunkeln die Szene ab, nachts leuchtet das Fenster */
+    .dimmer { fill: #081226; opacity: 0; transition: opacity 1.2s ease; pointer-events: none; }
+    #tile.wx-night .dimmer { opacity: .5; }
+    #tile.wx-rain .dimmer, #tile.wx-storm .dimmer, #tile.wx-wind .dimmer { opacity: .18; }
+    .window-glow { fill: #ffcf73; opacity: 0; transition: opacity 1.2s ease; filter: drop-shadow(0 0 3px #ffb347); }
+    #tile.wx-night .window-glow { opacity: .92; }
+    .grass { fill: url(#grassGrad); }
+    .terrace { fill: #b9a58d; }
+    .terrace-line { stroke: rgba(70, 55, 40, .25); stroke-width: 1; }
+    .furniture { fill: #5d4a3a; }
+    .plant-pot { fill: #c46a3a; }
+    .plant { fill: #4f9a45; }
+    .flower { fill: #f28fb1; }
+
+    /* Markise */
+    .canvas-g {
+        transform-box: view-box; transform-origin: 92px 44px;
+        transform: scaleX(calc(.03 + var(--e) * .97));
+        opacity: min(1, calc(var(--e) * 6));
+        transition: transform var(--travel) cubic-bezier(.45, .05, .35, 1), opacity var(--travel) linear;
+    }
+    .arm { stroke: #8b96a3; stroke-width: 2.2; stroke-linecap: round; }
+    .cassette { fill: #e8ecef; stroke: rgba(0, 0, 0, .15); stroke-width: .6; }
+    .shade { fill: rgba(20, 30, 40, .28); transform-box: view-box; transform-origin: 92px 120px; transform: scaleX(calc(var(--e))); transition: transform var(--travel) cubic-bezier(.45, .05, .35, 1); }
+    #tile.wx-night .shade, #tile.wx-cloud .shade, #tile.wx-rain .shade, #tile.wx-storm .shade, #tile.wx-wind .shade, #tile.wx-frost .shade { opacity: .25; }
 
     /* ---------- Text und Fortschritt ---------- */
     .reason { color: var(--muted); font-size: 12.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -174,9 +253,17 @@
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes breathe { 50% { transform: scale(1.08); opacity: .85; } }
+    @keyframes drift { from { transform: translateX(-140px); } to { transform: translateX(560px); } }
+    @keyframes fly { from { transform: translate(-40px, 0); } 50% { transform: translate(220px, -10px); } to { transform: translate(480px, 4px); } }
+    @keyframes flap { from { transform: scaleY(1); } to { transform: scaleY(-.55); } }
+    @keyframes twinkle { from { opacity: .25; } to { opacity: 1; } }
+    @keyframes snow { from { transform: translate(0, -20px); opacity: 0; } 15% { opacity: 1; } to { transform: translate(-12px, 120px); opacity: .2; } }
+    @keyframes leaf { from { transform: translate(-60px, 0) rotate(0); opacity: 0; } 15% { opacity: 1; } to { transform: translate(440px, 30px) rotate(720deg); opacity: 0; } }
+    @keyframes flash { 0%, 100% { opacity: 0; } 62% { opacity: 1; } 64% { opacity: 0; } 67% { opacity: 1; } 70% { opacity: 0; } }
     @keyframes pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--tone) 10%, transparent); } }
-    @keyframes gust { from { stroke-dashoffset: 60; } to { stroke-dashoffset: 0; } }
-    @keyframes drop { from { transform: translateY(-4px); opacity: 0; } 30% { opacity: 1; } to { transform: translateY(10px); opacity: 0; } }
+    @keyframes gust { from { stroke-dashoffset: 120; } to { stroke-dashoffset: 0; } }
+    @keyframes drop { from { transform: translate(0, -10px); opacity: 0; } 20% { opacity: 1; } to { transform: translate(-6px, 70px); opacity: 0; } }
 </style>
 
 <div id="tile" class="tone-info">
@@ -189,33 +276,139 @@
     <div class="error" id="error"></div>
 
     <div class="stage" aria-hidden="true">
-        <svg viewBox="0 0 200 90" preserveAspectRatio="xMinYMid meet">
+        <svg id="scene" viewBox="0 0 400 140" preserveAspectRatio="xMinYMax slice">
             <defs>
+                <linearGradient id="skyDay" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f8fe0"></stop><stop offset=".75" stop-color="#9fd2fb"></stop><stop offset="1" stop-color="#d9efff"></stop></linearGradient>
+                <linearGradient id="skyEve" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a5fa8"></stop><stop offset=".55" stop-color="#f08a5d"></stop><stop offset="1" stop-color="#ffd18a"></stop></linearGradient>
+                <linearGradient id="skyGrey" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7f97ae"></stop><stop offset="1" stop-color="#cbd8e3"></stop></linearGradient>
+                <linearGradient id="skyNight" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#07122a"></stop><stop offset="1" stop-color="#22385e"></stop></linearGradient>
+                <linearGradient id="skyStorm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3d4a58"></stop><stop offset="1" stop-color="#7d8b98"></stop></linearGradient>
+                <linearGradient id="skyCold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fb7cc"></stop><stop offset="1" stop-color="#eef4f8"></stop></linearGradient>
+                <radialGradient id="sunGlow"><stop offset="0" stop-color="#fff3c4" stop-opacity=".95"></stop><stop offset=".45" stop-color="#ffd166" stop-opacity=".45"></stop><stop offset="1" stop-color="#ffd166" stop-opacity="0"></stop></radialGradient>
+                <radialGradient id="sunCore" cx=".4" cy=".35"><stop offset="0" stop-color="#fff8d6"></stop><stop offset=".6" stop-color="#ffd043"></stop><stop offset="1" stop-color="#f6a925"></stop></radialGradient>
+                <radialGradient id="moonGlow"><stop offset="0" stop-color="#fff" stop-opacity=".35"></stop><stop offset="1" stop-color="#fff" stop-opacity="0"></stop></radialGradient>
+                <linearGradient id="cloudWhite" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"></stop><stop offset="1" stop-color="#dfe8f1"></stop></linearGradient>
+                <linearGradient id="cloudDark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8e9aa7"></stop><stop offset="1" stop-color="#5c6875"></stop></linearGradient>
+                <linearGradient id="wallGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e9dcc8"></stop><stop offset="1" stop-color="#d8c7ae"></stop></linearGradient>
+                <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cfe8ff"></stop><stop offset=".5" stop-color="#8fb9e0"></stop><stop offset="1" stop-color="#5f86ad"></stop></linearGradient>
+                <linearGradient id="doorGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8fb4d6"></stop><stop offset="1" stop-color="#6a8fb3"></stop></linearGradient>
+                <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc25b"></stop><stop offset="1" stop-color="#4f9440"></stop></linearGradient>
                 <pattern id="stripes" width="16" height="10" patternUnits="userSpaceOnUse">
                     <rect width="8" height="10" style="fill: var(--canvas-a)"></rect>
                     <rect x="8" width="8" height="10" style="fill: var(--canvas-b)"></rect>
                 </pattern>
             </defs>
-            <rect class="wall" x="0" y="4" width="40" height="80" rx="2"></rect>
-            <path class="door" d="M12 84 V48 H30 V84"></path>
-            <line class="ground" x1="0" y1="84" x2="200" y2="84"></line>
-            <g class="canvas-g">
-                <path class="shade" d="M40 82 H146 L150 85 H40 Z"></path>
-                <line class="arm" x1="40" y1="50" x2="146" y2="42"></line>
-                <!-- Tuch mit Volant; wird von der Wand aus aufgezogen -->
-                <path d="M40 22 L150 40 L150 46 L40 28 Z" fill="url(#stripes)"></path>
-                <path d="M150 40 v8 q-3.5 4 -7 0 q-3.5 4 -7 0 q-3.5 4 -7 0 q-3.5 4 -7 0 v-11.5 z" fill="url(#stripes)" opacity=".95"></path>
-            </g>
-            <rect class="cassette" x="38" y="18" width="8" height="7" rx="2"></rect>
 
-            <g class="wx sun"><circle cx="176" cy="18" r="8"></circle>
-                <g class="rays"><line x1="176" y1="3" x2="176" y2="6"></line><line x1="176" y1="30" x2="176" y2="33"></line><line x1="161" y1="18" x2="164" y2="18"></line><line x1="188" y1="18" x2="191" y2="18"></line><line x1="165.4" y1="7.4" x2="167.5" y2="9.5"></line><line x1="184.5" y1="26.5" x2="186.6" y2="28.6"></line><line x1="165.4" y1="28.6" x2="167.5" y2="26.5"></line><line x1="184.5" y1="9.5" x2="186.6" y2="7.4"></line></g>
+            <!-- Himmel -->
+            <rect class="sky sky-day" width="400" height="140" fill="url(#skyDay)"></rect>
+            <rect class="sky sky-eve" width="400" height="140" fill="url(#skyEve)"></rect>
+            <rect class="sky sky-grey" width="400" height="140" fill="url(#skyGrey)"></rect>
+            <rect class="sky sky-night" width="400" height="140" fill="url(#skyNight)"></rect>
+            <rect class="sky sky-storm" width="400" height="140" fill="url(#skyStorm)"></rect>
+            <rect class="sky sky-cold" width="400" height="140" fill="url(#skyCold)"></rect>
+
+            <g class="wx stars">
+                <circle cx="130" cy="14" r=".9"></circle><circle cx="170" cy="30" r=".7"></circle><circle cx="205" cy="10" r="1"></circle>
+                <circle cx="300" cy="24" r=".8"></circle><circle cx="355" cy="12" r="1"></circle><circle cx="380" cy="40" r=".7"></circle>
+                <circle cx="150" cy="48" r=".6"></circle><circle cx="240" cy="44" r=".7"></circle><circle cx="330" cy="58" r=".6"></circle>
             </g>
-            <g class="wx moon"><path d="M180 8 a11 11 0 1 0 8 18 a9 9 0 1 1 -8 -18 z"></path></g>
-            <g class="wx cloud"><path d="M160 30 h28 a7 7 0 0 0 -2 -13.7 a10 10 0 0 0 -19 -2.3 a7.5 7.5 0 0 0 -7 16 z"></path></g>
-            <g class="wx wind"><path d="M130 52 h42 a6 6 0 1 0 -6 -6"></path><path d="M120 62 h58"></path><path d="M134 72 h34 a5 5 0 1 1 -5 5"></path></g>
-            <g class="wx rain"><line x1="166" y1="36" x2="164" y2="42"></line><line x1="175" y1="36" x2="173" y2="42"></line><line x1="184" y1="36" x2="182" y2="42"></line></g>
-            <g class="wx frost"><path d="M176 6 v24 M165.6 12 l20.8 12 M165.6 24 l20.8 -12 M172 8 l4 3 l4 -3 M172 28 l4 -3 l4 3"></path></g>
+            <g class="wx moon"><circle class="halo" cx="270" cy="30" r="24"></circle><path class="disc" d="M276 18 a13 13 0 1 0 6 22 a10.5 10.5 0 1 1 -6 -22 z"></path></g>
+
+            <g class="wx sun behind">
+                <circle class="glow" cx="262" cy="32" r="34"></circle>
+                <g class="rays">
+                    <path d="M262 4 v6 M262 54 v6 M234 32 h6 M284 32 h6 M242.2 12.2 l4.2 4.2 M277.6 47.6 l4.2 4.2 M242.2 51.8 l4.2 -4.2 M277.6 16.4 l4.2 -4.2"></path>
+                </g>
+                <circle class="core" cx="262" cy="32" r="13"></circle>
+            </g>
+
+            <!-- Schönwetterwolken (bei Sonne wenige, bei Bewölkung mehr) -->
+            <g class="wx fair" transform="translate(0 16)">
+                <g class="drift d1"><path class="cl" d="M10 30 h40 a9 9 0 0 0 -3 -17.5 a13 13 0 0 0 -24 -3 a10 10 0 0 0 -13 20.5 z"></path></g>
+                <g class="drift d2"><path class="cl" d="M120 18 h28 a6.5 6.5 0 0 0 -2 -12.6 a9.5 9.5 0 0 0 -17.6 -2 a7 7 0 0 0 -8.4 14.6 z" opacity=".9"></path></g>
+            </g>
+            <g class="wx overcast" transform="translate(0 16)">
+                <g class="drift d3"><path class="cl" d="M40 44 h56 a12 12 0 0 0 -4 -23.5 a18 18 0 0 0 -33 -4.5 a13.5 13.5 0 0 0 -19 28 z"></path></g>
+                <g class="drift d4"><path class="cl" d="M200 26 h48 a10 10 0 0 0 -3 -19.5 a15 15 0 0 0 -27.6 -3.6 a11.5 11.5 0 0 0 -17.4 23.1 z"></path></g>
+                <g class="drift d5"><path class="cl" d="M-60 20 h44 a9.5 9.5 0 0 0 -3 -18.5 a14 14 0 0 0 -26 -3.4 a11 11 0 0 0 -15 21.9 z" opacity=".85"></path></g>
+            </g>
+            <g class="wx storm" transform="translate(0 16)">
+                <g class="drift d4"><path class="cl dark" d="M60 40 h70 a15 15 0 0 0 -5 -29 a22 22 0 0 0 -41 -5.6 a16 16 0 0 0 -24 34.6 z"></path></g>
+                <g class="drift d1"><path class="cl dark" d="M220 30 h64 a13 13 0 0 0 -4 -25.4 a20 20 0 0 0 -37 -5 a15 15 0 0 0 -23 30.4 z"></path></g>
+                <g class="drift d3"><path class="cl dark" d="M-80 26 h60 a12 12 0 0 0 -4 -23.5 a18 18 0 0 0 -33 -4.5 a14 14 0 0 0 -23 28 z" opacity=".9"></path></g>
+            </g>
+            <g class="wx bolt"><path d="M252 50 l-10 22 h8 l-6 18 l18 -26 h-9 l7 -14 z"></path></g>
+
+            <g class="wx birds">
+                <g class="bird b1" transform="translate(0 0)"><path d="M120 22 q4 -4 8 0 q4 -4 8 0"></path></g>
+                <g class="bird b2"><path d="M100 34 q3 -3 6 0 q3 -3 6 0"></path></g>
+                <g class="bird b3"><path d="M140 16 q2.6 -2.6 5.2 0 q2.6 -2.6 5.2 0"></path></g>
+            </g>
+
+            <!-- Boden -->
+            <rect class="grass" x="0" y="116" width="400" height="24"></rect>
+            <path class="terrace" d="M90 118 H330 L340 128 H90 Z"></path>
+            <path class="terrace-line" d="M130 118 l3 10 M170 118 l3 10 M210 118 l3 10 M250 118 l3 10 M290 118 l3 10"></path>
+            <path class="shade" d="M92 118 H300 L314 128 H92 Z"></path>
+
+            <!-- Haus mit Fenster und Terrassentür -->
+            <rect class="wall" x="0" y="6" width="92" height="114"></rect>
+            <path class="siding" d="M0 26 H92 M0 46 H92 M0 66 H92 M0 86 H92 M0 106 H92"></path>
+            <rect class="window-frame" x="14" y="28" width="34" height="30" rx="1.5"></rect>
+            <rect class="window-glass" x="17" y="31" width="13" height="24"></rect>
+            <rect class="window-glass" x="32" y="31" width="13" height="24"></rect>
+            <rect class="door-frame" x="56" y="64" width="28" height="54" rx="1"></rect>
+            <rect class="door-inside" x="58" y="66" width="24" height="52"></rect>
+            <rect class="door-leaf" x="58" y="66" width="24" height="52" rx="1"></rect>
+
+            <!-- Gartenmöbel und Pflanze -->
+            <g class="furniture">
+                <!-- Tisch -->
+                <rect x="174" y="103" width="44" height="3.2" rx="1.6"></rect>
+                <rect x="179" y="106" width="2.4" height="12"></rect><rect x="210.6" y="106" width="2.4" height="12"></rect>
+                <!-- Stühle -->
+                <rect x="156" y="96" width="2.4" height="22" rx="1"></rect><rect x="156" y="108" width="12" height="2.6" rx="1"></rect><rect x="165.6" y="110" width="2.4" height="8"></rect>
+                <rect x="233.6" y="96" width="2.4" height="22" rx="1"></rect><rect x="224" y="108" width="12" height="2.6" rx="1"></rect><rect x="224" y="110" width="2.4" height="8"></rect>
+                <!-- Sonnenglas auf dem Tisch -->
+                <rect x="194" y="98" width="4" height="5" rx="1" fill="#9fd2fb" opacity=".8"></rect>
+            </g>
+            <g transform="translate(-86 0)"><path class="plant-pot" d="M344 106 h18 l-3 14 h-12 z"></path>
+            <path class="plant" d="M353 106 c-10 -6 -12 -18 -4 -24 c2 8 4 14 4 24 c0 -12 4 -22 12 -26 c4 8 -2 20 -12 26 z"></path>
+            <circle class="flower" cx="349" cy="84" r="2.4"></circle><circle class="flower" cx="363" cy="82" r="2.2"></circle></g>
+
+            <!-- Markise: wird von der Wand aus aufgezogen -->
+            <rect class="cassette" x="88" y="38" width="10" height="9" rx="2.5"></rect>
+            <g class="canvas-g">
+                <line class="arm" x1="92" y1="80" x2="296" y2="66"></line>
+                <path d="M92 42 L300 62 L300 68 L92 48 Z" fill="url(#stripes)"></path>
+                <path d="M300 62 v10 q-4 4.5 -8 0 q-4 4.5 -8 0 q-4 4.5 -8 0 q-4 4.5 -8 0 q-4 4.5 -8 0 v-12.6 z" fill="url(#stripes)" opacity=".95"></path>
+            </g>
+
+            <!-- Abdunkeln bei Nacht und Unwetter, leuchtendes Fenster -->
+            <rect class="dimmer" width="400" height="140"></rect>
+            <rect class="window-glow" x="17" y="31" width="13" height="24"></rect>
+            <rect class="window-glow" x="32" y="31" width="13" height="24"></rect>
+
+            <!-- Wetter vor der Szene -->
+            <g class="wx rain">
+                <line x1="20" y1="40" x2="16" y2="50"></line><line x1="45" y1="30" x2="41" y2="40"></line><line x1="70" y1="45" x2="66" y2="55"></line>
+                <line x1="110" y1="35" x2="106" y2="45"></line><line x1="140" y1="50" x2="136" y2="60"></line><line x1="165" y1="28" x2="161" y2="38"></line>
+                <line x1="195" y1="42" x2="191" y2="52"></line><line x1="225" y1="32" x2="221" y2="42"></line><line x1="255" y1="48" x2="251" y2="58"></line>
+                <line x1="285" y1="36" x2="281" y2="46"></line><line x1="315" y1="44" x2="311" y2="54"></line><line x1="345" y1="30" x2="341" y2="40"></line>
+                <line x1="375" y1="46" x2="371" y2="56"></line><line x1="390" y1="34" x2="386" y2="44"></line>
+            </g>
+            <g class="wx wind">
+                <path d="M100 60 h150 a10 10 0 1 0 -10 -10"></path>
+                <path d="M60 80 h230"></path>
+                <path d="M130 96 h120 a8 8 0 1 1 -8 8"></path>
+                <path class="leaf" d="M100 70 q6 -6 12 0 q-6 6 -12 0 z"></path>
+                <path class="leaf" d="M100 90 q6 -6 12 0 q-6 6 -12 0 z"></path>
+            </g>
+            <g class="wx snow">
+                <circle cx="30" cy="20" r="1.6"></circle><circle cx="70" cy="10" r="1.2"></circle><circle cx="120" cy="25" r="1.8"></circle>
+                <circle cx="160" cy="8" r="1.3"></circle><circle cx="210" cy="18" r="1.6"></circle><circle cx="250" cy="6" r="1.2"></circle>
+                <circle cx="300" cy="22" r="1.7"></circle><circle cx="340" cy="12" r="1.3"></circle><circle cx="380" cy="20" r="1.6"></circle>
+            </g>
         </svg>
     </div>
 
@@ -292,14 +485,15 @@
             }
         }
 
+        // Wetterbild: Sicherheit zuerst, dann Nacht, dann Sonne nach Helligkeit (nicht nur nach Status)
         function weather(d) {
             var s = d.status;
             if (s === 9) return 'wind';
             if (s === 10) return 'rain';
             if (s === 11) return 'frost';
-            if (s === 14) return 'wind';
+            if (s === 14) return 'storm';
             if (d.sun && !d.sun.day) return 'night';
-            if (s === 2) return 'sun';
+            if (s === 2 || d.sunny) return 'sun';
             return 'cloud';
         }
 
@@ -311,6 +505,8 @@
             if (d.theme === 1) cls.push('theme-dark');
             if (d.theme === 2) cls.push('theme-light');
             if (d.reduce) cls.push('reduce');
+            if (d.sun && d.sun.eve) cls.push('eve');
+            if (d.door === false) cls.push('door-open');
             if (d.simulation) cls.push('simulation');
             if (d.error) cls.push('has-error', 'tone-off');
             if (tile.classList.contains('paused')) cls.push('paused');
@@ -413,6 +609,21 @@
         $('hold').addEventListener('click', function () {
             if (last) send('Hold', !last.hold);
         });
+
+        // Szene passend zur Kachelgröße: breit = Panorama füllen, schmal/hoch = ganze Szene zeigen, Himmel darüber
+        var scene = $('scene');
+        function fitScene() {
+            var r = scene.getBoundingClientRect();
+            if (!r.width || !r.height) return;
+            // sichtbare Breite in Szenen-Einheiten: mindestens Haus bis Markisenende (295), höchstens das ganze Panorama (400)
+            var w = Math.max(295, Math.min(400, 140 * r.width / r.height));
+            scene.setAttribute('viewBox', '0 0 ' + Math.round(w) + ' 140');
+            scene.setAttribute('preserveAspectRatio', w >= 400 ? 'xMinYMax slice' : 'xMinYMax meet');
+        }
+        if (window.ResizeObserver) {
+            new ResizeObserver(fitScene).observe(scene);
+        }
+        fitScene();
 
         // Statische Texte übersetzen
         Array.prototype.forEach.call(document.querySelectorAll('[data-t]'), function (el) {

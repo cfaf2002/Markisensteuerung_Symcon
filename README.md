@@ -220,7 +220,7 @@ Push-Nachricht bei Sicherheitsalarm, bei jeder automatischen Fahrt, Ziel-Visuali
 
 ## 6. Kachel
 
-Die Kachel zeigt die Markise an einer Hauswand, aufgerollt oder ausgefahren, und bewegt sie in der eingestellten Fahrzeit. Darüber das Wetter, das gerade entscheidet: Sonne, Wolke, Wind, Regen, Frost oder Mond.
+Die Kachel zeigt ein kleines Garten-Panorama: Haus mit Fenster und Terrassentür, Terrasse mit Tisch, Stühlen und Blumentopf, darüber die Markise, die in der eingestellten Fahrzeit aus- und einfährt und einen Schatten wirft. Der Himmel folgt Wetter und Tageszeit: blauer Himmel mit leuchtender Sonne, ziehenden Schönwetterwolken und Vögeln, Abendrot, bewölkt mit Sonne dahinter, Nacht mit Mond, Sternen und erleuchtetem Fenster, dunkle Regenwolken mit Regen, Sturm mit Windböen und fliegenden Blättern, Unwetter mit Blitz, Frost mit Schneeflocken. Ist die Terrassentür offen, steht sie auch im Bild offen. Die Sonne erscheint, sobald es tagsüber hell genug ist, nicht erst beim Ausfahren. Breite Kacheln zeigen das ganze Panorama, schmale den Ausschnitt vom Haus bis zur Markise.
 
 - **Kopf:** Status mit Farbpunkt (grün = Sonnenschutz, blau = Info, grau = Pause/Nacht, rot pulsierend = Sicherheit) und Schalter für die Automatik
 - **Begründung** der letzten Entscheidung
@@ -446,6 +446,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.4 | 16 | 05.10.2026 | Steuer-Kachel mit Garten-Panorama: Himmel nach Wetter und Tageszeit, Sonne mit Glühen, ziehende Wolken, Vögel, Mond und Sterne, Regen, Wind mit Blättern, Blitz, Schnee, Haus mit Fenster und Terrassentür (offen/zu), Gartenmöbel, Schatten der Markise; Größe passt sich der Kachel an |
 | 1.4 | 15 | 05.10.2026 | Urlaubsschalter des Hauses: im Urlaub bleibt die Markise eingefahren (Sicherheit gilt weiter), Anzeige in beiden Kacheln, Simulation |
 | 1.3 | 14 | 05.10.2026 | Einstellungs-Kachel im neuen Design: Karten mit Symbolen, Pillen-Stepper mit Gedrückthalten, runde Wochentags-Tasten, große Anwesenheitsanzeige, abgeblendetes Zeitfenster |
 | 1.3 | 13 | 05.10.2026 | Anwesenheitsvariable, die unter die Instanz verschoben wurde, lässt sich wieder schalten (Kachel, Objektbaum, Visualisierung); Einstellungs-Kachel scrollt nur unterhalb des Titels |
