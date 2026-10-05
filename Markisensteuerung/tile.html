@@ -78,17 +78,17 @@
 
     /* Weiche Wolken aus Verläufen (ohne teure Filter) */
     .drift { animation: drift linear infinite; }
-    .d1 { animation-duration: 120s; animation-delay: -30s; }
-    .d2 { animation-duration: 170s; animation-delay: -95s; }
-    .d3 { animation-duration: 140s; animation-delay: -60s; }
-    .d4 { animation-duration: 95s; animation-delay: -15s; }
+    .d1 { animation-duration: 55s; animation-delay: -14s; }
+    .d2 { animation-duration: 80s; animation-delay: -45s; }
+    .d3 { animation-duration: 65s; animation-delay: -28s; }
+    .d4 { animation-duration: 45s; animation-delay: -8s; }
 
     .bird { animation: fly linear infinite; }
     .bird path { fill: none; stroke: color-mix(in srgb, var(--fg) 70%, #000); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; transform-box: fill-box; transform-origin: center; animation: flap .55s ease-in-out infinite alternate; }
-    .b1 { animation-duration: 28s; }
-    .b2 { animation-duration: 34s; animation-delay: -11s; }
+    .b1 { animation-duration: 18s; }
+    .b2 { animation-duration: 23s; animation-delay: -8s; }
     .b2 path { animation-delay: -.2s; }
-    .b3 { animation-duration: 31s; animation-delay: -19s; }
+    .b3 { animation-duration: 21s; animation-delay: -13s; }
     .b3 path { animation-delay: -.35s; }
 
     .moon .disc { fill: #f3efe0; }
@@ -171,7 +171,7 @@
     .auto[aria-checked="true"] .track::after { transform: translateX(14px); }
 
     .hero { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-    .big { font-size: clamp(30px, 11cqmin, 72px); font-weight: 800; line-height: 1; letter-spacing: -.02em; }
+    .big { font-size: clamp(30px, 11cqmin, 72px); font-weight: 800; line-height: 1.15; letter-spacing: -.02em; padding-bottom: .06em; }
     .big small { font-size: .38em; font-weight: 600; margin-left: .3em; letter-spacing: 0; color: var(--muted); }
     .pill {
         display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 6px 14px 6px 10px; border-radius: 999px;
@@ -244,11 +244,8 @@
 
     /* ---------- Ruhe ---------- */
     #tile.paused *, #tile.reduce .layer * { animation-play-state: paused !important; }
-    /* „Bewegung reduzieren“: Deko steht, das Aus- und Einfahren läuft weiter in der Fahrzeit */
-    @media (prefers-reduced-motion: reduce) {
-        #tile * { animation: none !important; }
-        #tile .tint, #tile .wx, #tile .dimmer, #tile .window-glow { transition: none !important; }
-    }
+    /* Ob sich Wolken, Vögel und Wetter bewegen, entscheidet die Option „Animationen reduzieren“ der Instanz
+       (die Systemeinstellung „Animationseffekte“ von Windows/Android würde sonst alles anhalten) */
 
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes breathe { 50% { transform: scale(1.06); opacity: .85; } }
