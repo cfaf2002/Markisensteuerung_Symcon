@@ -681,8 +681,18 @@
                             "caption": "Value for \"closed\"",
                             "minimum": 0,
                             "maximum": 10
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Door is closed now",
+                            "onClick": "IPS_RequestAction($id, 'DoorTakeClosed', 0);"
                         }
                     ]
+                },
+                {
+                    "type": "Label",
+                    "name": "DoorInfo",
+                    "caption": ""
                 }
             ]
         },

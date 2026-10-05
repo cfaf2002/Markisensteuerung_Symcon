@@ -191,7 +191,7 @@ Breiten- und Längengrad für Tag/Nacht und Sonnenrichtung. Stehen beide auf 0, 
 |---|---|---|
 | Schalter „Halten (Abendmodus)“ anbieten | an | Legt die Variable „Halten“ an und zeigt die Taste in der Kachel |
 | Terrassentür | – | Optional. Wird die Tür geschlossen (Wechsel von offen auf zu), endet Halten. Wer Halten bei schon geschlossener Tür einschaltet, beendet es erst mit dem nächsten Schließen |
-| Wert für „geschlossen“ | 0 | z. B. 0 bei Homematic-Kontakten (0 zu, 1 gekippt, 2 offen) oder bei Boolean-Kontakten (aus = zu) |
+| Wert für „geschlossen“ | 0 | Der Wert, den die Türvariable bei geschlossener Tür hat. Unter den Feldern steht der aktuelle Wert und wie das Modul ihn deutet. Am einfachsten: Tür schließen und **Tür ist jetzt zu** klicken, dann wird der aktuelle Wert übernommen |
 
 Halten endet außerdem, wenn die Abwesenheits-Karenz abgelaufen ist, und spätestens am nächsten Morgen, sobald es hell ist.
 
@@ -217,7 +217,7 @@ Die Kachel zeigt die Markise an einer Hauswand, aufgerollt oder ausgefahren, und
 - **Kopf:** Status mit Farbpunkt (grün = Sonnenschutz, blau = Info, grau = Pause/Nacht, rot pulsierend = Sicherheit) und Schalter für die Automatik
 - **Begründung** der letzten Entscheidung
 - **Countdown** für Wind-/Regensperre, Handbetrieb-Pause oder Karenz, mit „Automatik fortsetzen“, „Karenz neu starten“ und „Karenz beenden“
-- **Sensorliste** mit Wert, Grenze und Ampelpunkt (ab ca. 260 × 340 Pixel)
+- **Sensorliste** mit Wert, Grenze und Ampelpunkt (ab ca. 260 × 340 Pixel). Bei Helligkeit und Temperatur heißt grün „reicht zum Ausfahren“, rot „so niedrig, dass eingefahren wird“ und grau „dazwischen, die Markise bleibt, wie sie ist“ (Hysterese)
 - **Tasten** Einfahren, Stopp (nur wenn vorhanden), Ausfahren und Halten (Mond-Symbol, leuchtet wenn aktiv). Bei Sicherheitsalarm ist Ausfahren gesperrt
 - **Sensorliste** zusätzlich mit Unwetter-Warnstufe und Terrassentür, bei der Helligkeit auch der Mittelwert, wenn er vom aktuellen Wert abweicht
 - Kleine Kacheln zeigen nur Status und Tasten
@@ -409,6 +409,8 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.2 | 9 | 05.10.2026 | Kachel: Ampel bei Helligkeit und Temperatur berücksichtigt die Hysterese (grau statt rot zwischen Ein- und Ausfahrgrenze) |
+| 1.2 | 8 | 05.10.2026 | Terrassentür: aktueller Wert und Deutung im Formular und in der Kachel, Taste „Tür ist jetzt zu“ übernimmt den Wert für „geschlossen“ |
 | 1.2 | 7 | 05.10.2026 | Halten (Abendmodus) mit Terrassentür, DWD-Unwetterwarnung, Böen-Trend, Lux-Mittelwert, Schaltlimit, eigener Standort mit Übernahme aus dem Location-Modul, Übernahme der Einstellungen aus dem bisherigen Skript, Simulation für Tür und Warnstufe |
 | 1.1 | 6 | 05.10.2026 | Kachel lässt oben Platz für Titel und Symbole der Kachel-Visualisierung; bei inaktiver Instanz nur noch Hinweis ohne Sensorliste |
 | 1.1 | 5 | 05.10.2026 | Simulation (Testbetrieb) mit Simulationsvariablen, vorgebbarer Uhrzeit, Protokoll und weiter aktivem echtem Wind- und Regenschutz |

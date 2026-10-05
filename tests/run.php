@@ -849,6 +849,36 @@ test('Halten endet beim Schließen der Terrassentür', function (): void {
     check(lastAction() === V_RETRACT . '=true', 'danach entscheidet die Automatik (zu dunkel → ein)');
 });
 
+test('Terrassentür: falscher Wert für „geschlossen“ fällt auf und lässt sich per Taste korrigieren', function (): void {
+    Sym::variable(V_DOOR, VARIABLETYPE_INTEGER, 0); // bei dieser Tür bedeutet 0 „offen“
+    $m = markise(['DoorVariableID' => V_DOOR, 'DoorClosedValue' => 0]);
+    $json = json_encode(json_decode($m->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE);
+    check(str_contains($json, 'Wert 0') && str_contains($json, 'gilt als geschlossen'), 'Formular zeigt Wert und Deutung');
+    $tile = json_decode($m->attr('TileData'), true);
+    $row = array_values(array_filter($tile['sensors'], static fn ($r) => $r['k'] === 'door'))[0];
+    check($row['limit'] === 'Wert 0', 'Kachel zeigt den Wert der Variable');
+    Sym::$vars[V_DOOR]['value'] = 1; // Tür zu
+    ob_start();
+    $m->RequestAction('DoorTakeClosed', 0);
+    $out = (string) ob_get_clean();
+    check(in_array(['DoorClosedValue', 'value', 1], $m->formUpdates, true), 'Wert 1 als geschlossen ins Formular: ' . $out);
+});
+
+test('Kachel: Ampel mit Hysterese', function (): void {
+    $m = markise(['LuxOn' => 25000, 'LuxOff' => 15000]);
+    $dot = function () use ($m): array {
+        $tile = json_decode($m->attr('TileData'), true);
+        return array_column($tile['sensors'], 'ok', 'k');
+    };
+    check($dot()['lux'] === true, '50.000 lx: grün');
+    $m->sensor(V_LUX, 20000.0);
+    check($dot()['lux'] === null, '20.000 lx (zwischen den Grenzen): grau');
+    $m->sensor(V_LUX, 10000.0);
+    check($dot()['lux'] === false, '10.000 lx: rot');
+    $m->sensor(V_TEMP, 17.5);
+    check($dot()['temp'] === null, '17,5 °C bei 18 °C und 1 K Hysterese: grau');
+});
+
 test('Halten bei geschlossener Tür einschalten: erst das nächste Schließen beendet es', function (): void {
     Sym::variable(V_DOOR, VARIABLETYPE_INTEGER, 0);
     $m = markise(['DoorVariableID' => V_DOOR]);

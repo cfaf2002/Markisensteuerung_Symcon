@@ -76,6 +76,8 @@ function IPS_VariableExists(int $id): bool { return isset(Sym::$vars[$id]); }
 
 function GetValue(int $id): mixed { return Sym::$vars[$id]['value']; }
 
+function GetValueFormatted(int $id): string { return (string) json_encode(Sym::$vars[$id]['value']); }
+
 function IPS_GetVariable(int $id): array
 {
     $v = Sym::$vars[$id];

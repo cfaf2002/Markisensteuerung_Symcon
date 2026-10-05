@@ -104,7 +104,8 @@ trait MarkiseTileTrait
                 'label' => $this->Translate('Brightness'),
                 'value' => $this->Thousands($round($c['lux'])) . ' lx',
                 'limit' => '≥ ' . $this->Thousands((float) $this->ReadPropertyInteger('LuxOn')) . ' lx',
-                'ok'    => $c['luxFrozen'] ? false : $avg >= $this->ReadPropertyInteger('LuxOn'),
+                // grün = hell genug zum Ausfahren, rot = so dunkel, dass eingefahren wird, grau = dazwischen (Hysterese: bleibt, wie es ist)
+                'ok'    => $c['luxFrozen'] ? false : self::Band($avg, (float) $this->ReadPropertyInteger('LuxOn'), (float) min($this->ReadPropertyInteger('LuxOn'), $this->ReadPropertyInteger('LuxOff'))),
                 'note'  => $note,
             ];
         }
@@ -114,7 +115,7 @@ trait MarkiseTileTrait
                 'label' => $this->Translate('Temperature'),
                 'value' => $this->Num($c['temp']) . ' °C',
                 'limit' => '≥ ' . $this->Num($this->ReadPropertyFloat('TempMin')) . ' °C',
-                'ok'    => $c['temp'] >= $this->ReadPropertyFloat('TempMin'),
+                'ok'    => self::Band($c['temp'], $this->ReadPropertyFloat('TempMin'), $this->ReadPropertyFloat('TempMin') - max(0.0, $this->ReadPropertyFloat('TempHysteresis'))),
                 'note'  => '',
             ];
         }
@@ -162,16 +163,33 @@ trait MarkiseTileTrait
         }
         $door = $this->DoorClosed();
         if ($door !== null) {
+            // Wert der Variable mit anzeigen, damit eine falsche Einstellung „Wert für geschlossen“ sofort auffällt
+            $doorID = $this->ReadPropertyInteger('DoorVariableID');
+            $raw = ($doorID > 0 && IPS_VariableExists($doorID) && !$this->Simulating())
+                ? sprintf($this->Translate('value %d'), (int) round((float) GetValue($doorID)))
+                : '';
             $list[] = [
                 'k'     => 'door',
                 'label' => $this->Translate('Terrace door'),
                 'value' => $door ? $this->Translate('closed') : $this->Translate('open'),
-                'limit' => '',
+                'limit' => $raw,
                 'ok'    => null,
                 'note'  => '',
             ];
         }
         return $list;
+    }
+
+    /**
+     * Ampel mit Hysterese: true ab der Ausfahrgrenze, false unter der Einfahrgrenze,
+     * null dazwischen (die Markise bleibt dort, wie sie ist).
+     */
+    private static function Band(float $value, float $on, float $off): ?bool
+    {
+        if ($value >= $on) {
+            return true;
+        }
+        return $value < $off ? false : null;
     }
 
     private function StatusText(int $status): string

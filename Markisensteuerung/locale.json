@@ -287,7 +287,12 @@
             "Take over settings": "Einstellungen übernehmen",
             "Hold": "Halten",
             "End hold – the automatic decides again": "Halten beenden – die Automatik entscheidet wieder",
-            "Hold – the awning stays as it is (evening mode)": "Halten – die Markise bleibt, wie sie ist (Abendmodus)"
+            "Hold – the awning stays as it is (evening mode)": "Halten – die Markise bleibt, wie sie ist (Abendmodus)",
+            "Please select the terrace door and click \"Apply changes\" first.": "Bitte zuerst die Terrassentür auswählen und „Änderungen übernehmen“ klicken.",
+            "Value %d is now \"closed\". Click \"Apply changes\" to save.": "Wert %d gilt jetzt als „geschlossen“. Zum Speichern „Änderungen übernehmen“ klicken.",
+            "Terrace door now: value %d (%s) → counts as %s. If that is wrong: close the door and click \"Door is closed now\".": "Terrassentür jetzt: Wert %d (%s) → gilt als %s. Stimmt das nicht: Tür schließen und „Tür ist jetzt zu“ klicken.",
+            "Door is closed now": "Tür ist jetzt zu",
+            "value %d": "Wert %d"
         }
     }
 }

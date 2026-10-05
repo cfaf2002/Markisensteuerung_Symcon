@@ -326,6 +326,17 @@ class Markisensteuerung extends IPSModuleStrict
                 echo sprintf($this->Translate('Location %s / %s taken over. Click "Apply changes" to save.'), (string) $loc[0], (string) $loc[1]);
                 return;
 
+            case 'DoorTakeClosed':
+                // Tür ist jetzt zu: ihren aktuellen Wert als „geschlossen“ ins Formular übernehmen
+                $raw = $this->ReadSensor('DoorVariableID', true);
+                if ($raw === null) {
+                    echo $this->Translate('Please select the terrace door and click "Apply changes" first.');
+                    return;
+                }
+                $this->UpdateFormField('DoorClosedValue', 'value', (int) round($raw));
+                echo sprintf($this->Translate('Value %d is now "closed". Click "Apply changes" to save.'), (int) round($raw));
+                return;
+
             case 'FindWarning':
                 $id = $this->FindWarningVariable(true);
                 if ($id === 0) {
@@ -1414,6 +1425,17 @@ class Markisensteuerung extends IPSModuleStrict
                 ? sprintf($this->Translate('Used: own location %s / %s'), $this->Coord($own[0]), $this->Coord($own[1]))
                 : ($module !== null ? sprintf($this->Translate('Used: location module %s / %s'), $this->Coord($module[0]), $this->Coord($module[1])) : ''),
         ];
+        $doorID = $this->ReadPropertyInteger('DoorVariableID');
+        if ($doorID > 0 && IPS_VariableExists($doorID)) {
+            $raw = (int) round((float) GetValue($doorID));
+            $closed = $raw === $this->ReadPropertyInteger('DoorClosedValue');
+            $captions['DoorInfo'] = sprintf(
+                $this->Translate('Terrace door now: value %d (%s) → counts as %s. If that is wrong: close the door and click "Door is closed now".'),
+                $raw,
+                (string) @GetValueFormatted($doorID),
+                $closed ? $this->Translate('closed') : $this->Translate('open')
+            );
+        }
         if ($this->ReadPropertyBoolean('UseWarning')) {
             $warn = $this->WarningID();
             $captions['WarningInfo'] = $this->Translate('Levels: 1 = weather warning, 2 = significant weather, 3 = severe weather, 4 = extreme weather. Heat and UV warnings are ignored. If the warning source fails, the awning is not blocked.')
