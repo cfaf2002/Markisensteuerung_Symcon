@@ -54,10 +54,8 @@
     .layer svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
     .ground { --below: 0px; }
     .ground svg { top: 0; bottom: auto; height: calc(100% - var(--below)); }
-    /* Wiese unter dem Garten, auf ihr liegen Werte und Tasten */
-    .ground::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--below) + 1px); background: linear-gradient(180deg, #4f9440, #3f7a33); }
-    #tile.wx-night .ground::after { background: linear-gradient(180deg, #2c4a2a, #223a21); }
-    #tile.wx-rain .ground::after, #tile.wx-storm .ground::after, #tile.wx-wind .ground::after { background: linear-gradient(180deg, #44803a, #36682e); }
+    /* Unter dem Garten bleibt der graue Hintergrund der Kachel; dort liegen Werte und Tasten */
+    .ground svg { border-bottom-left-radius: 0; }
 
     /* Himmel: zarte Tönung über dem Hintergrund der Visualisierung, je nach Wetter und Tageszeit */
     .tint { opacity: 0; transition: opacity 1.4s ease; }
@@ -672,6 +670,9 @@
             top = Math.max(0, Math.min(top, tr.height - below - 40));
             ground.style.top = top + 'px';
             ground.style.setProperty('--below', below + 'px');
+            // Himmel und Wetter enden mit dem Garten; darunter grauer Hintergrund für Werte und Tasten
+            document.querySelector('.sky').style.bottom = below + 'px';
+            document.querySelector('.front').style.bottom = below + 'px';
             var h = tr.height - top - below;
             var w = Math.max(295, Math.min(1400, 140 * tr.width / Math.max(1, h)));
             var x = 0;

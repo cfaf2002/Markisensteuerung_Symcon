@@ -220,7 +220,7 @@ Push-Nachricht bei Sicherheitsalarm, bei jeder automatischen Fahrt, Ziel-Visuali
 
 ## 6. Kachel
 
-Die Kachel ist im Stil der Pegelstand-Kachel gestaltet: Die Szene füllt die ganze Kachel, die Anzeige liegt darüber. Oben links steht groß der Zustand der Markise („Ausgefahren“, „Eingefahren“, „Fährt aus“ …, mit Positionsvariable auch in Prozent), darunter der Status als Pille mit Farbpunkt und die Begründung. Der Himmel ist eine zarte Tönung über dem Hintergrund der Visualisierung: Sonne mit feinem Strahlenkranz und weichem Glühen, weiche ziehende Wolken, Vögel, Abendrot, Mond und Sterne, dunkle Regenwolken mit Regen, Sturm mit Böen und Blättern, Blitz, Schneeflocken. Unten der Garten mit Haus, Fenster, Terrassentür (offen/zu), Terrasse, Gartenmöbeln, Blumentopf und der Markise, die in der Fahrzeit aus- und einfährt. Werte und Tasten liegen als Glas-Elemente auf der Wiese. Auf dem Handy rutscht der Garten nach unten und die Sonne bleibt oben rechts, auf flachen Monitor-Kacheln steht der Garten rechts neben der Anzeige.
+Die Kachel ist im Stil der Pegelstand-Kachel gestaltet: Die Szene füllt die ganze Kachel, die Anzeige liegt darüber. Oben links steht groß der Zustand der Markise („Ausgefahren“, „Eingefahren“, „Fährt aus“ …, mit Positionsvariable auch in Prozent), darunter der Status als Pille mit Farbpunkt und die Begründung. Der Himmel ist eine zarte Tönung über dem Hintergrund der Visualisierung: Sonne mit feinem Strahlenkranz und weichem Glühen, weiche ziehende Wolken, Vögel, Abendrot, Mond und Sterne, dunkle Regenwolken mit Regen, Sturm mit Böen und Blättern, Blitz, Schneeflocken. Unten der Garten mit Haus, Fenster, Terrassentür (offen/zu), Terrasse, Gartenmöbeln, Blumentopf und der Markise, die in der Fahrzeit aus- und einfährt. Werte und Tasten liegen darunter auf dem grauen Hintergrund der Kachel. Auf dem Handy rutscht der Garten nach unten und die Sonne bleibt oben rechts, auf flachen Monitor-Kacheln steht der Garten rechts neben der Anzeige.
 
 - **Kopf:** Status mit Farbpunkt (grün = Sonnenschutz, blau = Info, grau = Pause/Nacht, rot pulsierend = Sicherheit) und Schalter für die Automatik
 - **Begründung** der letzten Entscheidung
@@ -446,6 +446,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.5 | 22 | 05.10.2026 | Unter dem Garten wieder der graue Kachel-Hintergrund für Werte und Tasten; Himmel und Wetter enden mit dem Garten |
 | 1.5 | 21 | 05.10.2026 | Steuer-Kachel neu im Stil der Pegelstand-Kachel: Szene über die ganze Kachel, großer Zustand, Status-Pille, weiche Wolken, Sonne mit Strahlenkranz, Werte als Glas-Chips, Tasten auf der Wiese; passt sich Handy, Tablet und flachen Monitor-Kacheln an |
 | 1.4 | 20 | 05.10.2026 | Markise in der Kachel deutlich sichtbarer: kräftiges Tuch mit Kontur, Glanz und Unterseite, kontrastreiche Streifen, Gelenkarme mit Gelenk, größere Kassette; breite Kacheln zeigen zusätzlich Zaun, Baum, Büsche und Blumen; die Szene wird auch bei sehr flachen Kacheln nicht mehr abgeschnitten |
 | 1.4 | 19 | 05.10.2026 | Fehler behoben: Mit „Animationen reduzieren“ sprang das Markisentuch sofort auf ganz aus/ganz ein, während der Schatten in der Fahrzeit lief. Aus- und Einfahren laufen jetzt immer gemeinsam in der Fahrzeit; reduziert wird nur die Deko |
