@@ -351,6 +351,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.1 | 6 | 05.10.2026 | Kachel lässt oben Platz für Titel und Symbole der Kachel-Visualisierung; bei inaktiver Instanz nur noch Hinweis ohne Sensorliste |
 | 1.1 | 5 | 05.10.2026 | Simulation (Testbetrieb) mit Simulationsvariablen, vorgebbarer Uhrzeit, Protokoll und weiter aktivem echtem Wind- und Regenschutz |
 | 1.0 | 4 | 04.10.2026 | Einheit (Bft, km/h, m/s) wird direkt an den Wind- und Böengrenzen angezeigt |
 | 1.0 | 3 | 04.10.2026 | Nur noch ein Eintrag „Markisensteuerung“ beim Hinzufügen einer Instanz (keine Aliase mehr) |
