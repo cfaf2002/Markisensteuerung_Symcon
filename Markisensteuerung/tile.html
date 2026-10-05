@@ -174,11 +174,11 @@
         transform-box: view-box; transform-origin: 92px 44px;
         transform: scaleX(calc(.03 + var(--e) * .97));
         opacity: min(1, calc(var(--e) * 6));
-        transition: transform var(--travel) cubic-bezier(.45, .05, .35, 1), opacity var(--travel) linear;
+        transition: transform var(--travel) linear, opacity var(--travel) linear;
     }
     .arm { stroke: #8b96a3; stroke-width: 2.2; stroke-linecap: round; }
     .cassette { fill: #e8ecef; stroke: rgba(0, 0, 0, .15); stroke-width: .6; }
-    .shade { fill: rgba(20, 30, 40, .28); transform-box: view-box; transform-origin: 92px 120px; transform: scaleX(calc(var(--e))); transition: transform var(--travel) cubic-bezier(.45, .05, .35, 1); }
+    .shade { fill: rgba(20, 30, 40, .28); transform-box: view-box; transform-origin: 92px 120px; transform: scaleX(calc(var(--e))); transition: transform var(--travel) linear; }
     #tile.wx-night .shade, #tile.wx-cloud .shade, #tile.wx-rain .shade, #tile.wx-storm .shade, #tile.wx-wind .shade, #tile.wx-frost .shade { opacity: .25; }
 
     /* ---------- Text und Fortschritt ---------- */
@@ -202,7 +202,7 @@
     .sensors .mark.na { background: var(--off); }
 
     /* ---------- Bedienung ---------- */
-    .ctrl { display: flex; gap: 6px; }
+    .ctrl { display: flex; gap: 6px; min-width: 0; }
     .ctrl button {
         flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px;
         border: 1px solid var(--line); border-radius: 10px; background: var(--well); color: inherit;
@@ -238,6 +238,16 @@
         .reason { -webkit-line-clamp: 1; }
         .links { display: none; }
     }
+    /* Handy hochkant: Stopp und Halten nur als Symbol, damit alle vier Tasten passen */
+    .ctrl button { min-width: 0; overflow: hidden; }
+    .ctrl button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    @container (max-width: 520px) {
+        #stop, #hold { flex: 0 0 44px; }
+        #stop span, #hold span { display: none; }
+    }
+    @container (max-width: 300px) {
+        .ctrl button span { display: none; }
+    }
     @container (max-height: 150px) or (max-width: 170px) {
         .stage, .reason, .timer { display: none; }
         .ctrl button span { display: none; }
@@ -254,7 +264,7 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes breathe { 50% { transform: scale(1.08); opacity: .85; } }
-    @keyframes drift { from { transform: translateX(-140px); } to { transform: translateX(560px); } }
+    @keyframes drift { from { transform: translateX(-140px); } to { transform: translateX(var(--sw, 560px)); } }
     @keyframes fly { from { transform: translate(-40px, 0); } 50% { transform: translate(220px, -10px); } to { transform: translate(480px, 4px); } }
     @keyframes flap { from { transform: scaleY(1); } to { transform: scaleY(-.55); } }
     @keyframes twinkle { from { opacity: .25; } to { opacity: 1; } }
@@ -300,12 +310,12 @@
             </defs>
 
             <!-- Himmel -->
-            <rect class="sky sky-day" width="400" height="140" fill="url(#skyDay)"></rect>
-            <rect class="sky sky-eve" width="400" height="140" fill="url(#skyEve)"></rect>
-            <rect class="sky sky-grey" width="400" height="140" fill="url(#skyGrey)"></rect>
-            <rect class="sky sky-night" width="400" height="140" fill="url(#skyNight)"></rect>
-            <rect class="sky sky-storm" width="400" height="140" fill="url(#skyStorm)"></rect>
-            <rect class="sky sky-cold" width="400" height="140" fill="url(#skyCold)"></rect>
+            <rect class="sky sky-day" width="800" height="140" fill="url(#skyDay)"></rect>
+            <rect class="sky sky-eve" width="800" height="140" fill="url(#skyEve)"></rect>
+            <rect class="sky sky-grey" width="800" height="140" fill="url(#skyGrey)"></rect>
+            <rect class="sky sky-night" width="800" height="140" fill="url(#skyNight)"></rect>
+            <rect class="sky sky-storm" width="800" height="140" fill="url(#skyStorm)"></rect>
+            <rect class="sky sky-cold" width="800" height="140" fill="url(#skyCold)"></rect>
 
             <g class="wx stars">
                 <circle cx="130" cy="14" r=".9"></circle><circle cx="170" cy="30" r=".7"></circle><circle cx="205" cy="10" r="1"></circle>
@@ -346,7 +356,7 @@
             </g>
 
             <!-- Boden -->
-            <rect class="grass" x="0" y="116" width="400" height="24"></rect>
+            <rect class="grass" x="0" y="116" width="800" height="24"></rect>
             <path class="terrace" d="M90 118 H330 L340 128 H90 Z"></path>
             <path class="terrace-line" d="M130 118 l3 10 M170 118 l3 10 M210 118 l3 10 M250 118 l3 10 M290 118 l3 10"></path>
             <path class="shade" d="M92 118 H300 L314 128 H92 Z"></path>
@@ -385,7 +395,7 @@
             </g>
 
             <!-- Abdunkeln bei Nacht und Unwetter, leuchtendes Fenster -->
-            <rect class="dimmer" width="400" height="140"></rect>
+            <rect class="dimmer" width="800" height="140"></rect>
             <rect class="window-glow" x="17" y="31" width="13" height="24"></rect>
             <rect class="window-glow" x="32" y="31" width="13" height="24"></rect>
 
@@ -497,6 +507,32 @@
             return 'cloud';
         }
 
+        // Markise genau in der eingestellten Fahrzeit bewegen. Wird die Kachel mitten in der Fahrt
+        // geöffnet, geht es an der passenden Stelle weiter statt von vorn oder sprunghaft.
+        var travelKey = '';
+        function animateTravel(d) {
+            var target = extension(d);
+            var moving = (d.state === 1 || d.state === 2) && !d.hasPosition && d.travel > 0;
+            var key = d.state + ':' + (d.travelStart || 0);
+            if (!moving) {
+                travelKey = key;
+                tile.style.setProperty('--travel', '1.2s');
+                tile.style.setProperty('--e', String(target));
+                return;
+            }
+            if (key === travelKey) return; // dieselbe Fahrt läuft schon
+            travelKey = key;
+            var elapsed = Math.max(0, now() - (d.travelStart || now()));
+            var done = Math.min(1, elapsed / d.travel);
+            var start = d.state === 2 ? done : 1 - done;
+            // ohne Übergang auf den aktuellen Stand setzen, dann den Rest der Fahrzeit animieren
+            tile.style.setProperty('--travel', '0s');
+            tile.style.setProperty('--e', String(start));
+            void tile.offsetWidth;
+            tile.style.setProperty('--travel', Math.max(0.3, d.travel - elapsed) + 's');
+            tile.style.setProperty('--e', String(target));
+        }
+
         function render(d) {
             last = d;
             if (typeof d.now === 'number') offset = d.now - Math.floor(Date.now() / 1000);
@@ -521,8 +557,7 @@
             auto.title = t(d.automatic ? 'Switch automatic off' : 'Switch automatic on');
 
             // Bewegung über die Fahrzeit der Markise darstellen
-            tile.style.setProperty('--travel', (d.state === 1 || d.state === 2 ? d.travel : 1.2) + 's');
-            tile.style.setProperty('--e', String(extension(d)));
+            animateTravel(d);
 
             $('stop').hidden = !d.canStop;
             var out = d.state === 2 || d.state === 3;
@@ -615,10 +650,12 @@
         function fitScene() {
             var r = scene.getBoundingClientRect();
             if (!r.width || !r.height) return;
-            // sichtbare Breite in Szenen-Einheiten: mindestens Haus bis Markisenende (295), höchstens das ganze Panorama (400)
-            var w = Math.max(295, Math.min(400, 140 * r.width / r.height));
+            // Sichtbare Breite in Szenen-Einheiten: die volle Höhe bleibt immer sichtbar (Sonne wird nicht abgeschnitten).
+            // Schmal: mindestens Haus bis Markisenende (295); breit/flach (z. B. Handy quer): Himmel und Wiese gehen bis 800 weiter.
+            var w = Math.max(295, Math.min(800, 140 * r.width / r.height));
             scene.setAttribute('viewBox', '0 0 ' + Math.round(w) + ' 140');
-            scene.setAttribute('preserveAspectRatio', w >= 400 ? 'xMinYMax slice' : 'xMinYMax meet');
+            scene.setAttribute('preserveAspectRatio', w >= 800 ? 'xMinYMax slice' : 'xMinYMax meet');
+            scene.style.setProperty('--sw', Math.round(w + 60) + 'px');
         }
         if (window.ResizeObserver) {
             new ResizeObserver(fitScene).observe(scene);

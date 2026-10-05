@@ -54,6 +54,8 @@ trait MarkiseTileTrait
         $data['state'] = (int) $this->GetValue('State');
         $data['position'] = $data['hasPosition'] ? (int) $this->GetValue('Position') : null;
         $data['travel'] = max(1, $this->ReadPropertyInteger('TravelTime'));
+        // Beginn der laufenden Fahrt: die Kachel setzt die Animation an der richtigen Stelle fort
+        $data['travelStart'] = $this->ReadAttributeInteger('LastCommandTime');
         $data['manualUntil'] = $this->ReadAttributeInteger('ManualUntil');
         $lock = max($this->ReadAttributeInteger('WindLockUntil'), $this->ReadAttributeInteger('RainLockUntil'));
         $data['lockUntil'] = $lock > $this->Now() ? $lock : 0;

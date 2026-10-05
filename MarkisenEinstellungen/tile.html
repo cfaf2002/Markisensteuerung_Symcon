@@ -77,7 +77,14 @@
 
     .row { display: flex; align-items: center; gap: 10px; min-height: 46px; border-top: 1px solid var(--line); }
     .card-h + .row { border-top: 0; }
-    .row .lbl { flex: 1; min-width: 0; color: color-mix(in srgb, var(--fg) 88%, transparent); overflow: hidden; text-overflow: ellipsis; }
+    .row .lbl { flex: 1; min-width: 0; color: color-mix(in srgb, var(--fg) 88%, transparent); overflow-wrap: anywhere; padding: 6px 0; }
+    /* Handy: kompaktere Pillen, damit die Beschriftung Platz hat */
+    @container (max-width: 420px) {
+        .card { padding: 10px 10px 4px; }
+        .pill button { width: 30px; }
+        .pill .val { min-width: 58px; font-size: 14px; }
+        .row { gap: 8px; }
+    }
     .row.dim .lbl, .row.dim .pill, .row.dim input { opacity: .45; }
 
     /* ---------- Stepper als Pille ---------- */

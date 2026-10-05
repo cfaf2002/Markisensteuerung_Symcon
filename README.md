@@ -446,6 +446,8 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.4 | 18 | 05.10.2026 | Markise fährt in der Kachel gleichmäßig genau in der eingestellten Fahrzeit; wird die Kachel während einer Fahrt geöffnet, geht die Animation an der richtigen Stelle weiter |
+| 1.4 | 17 | 05.10.2026 | Kachel-Szene zeigt immer die volle Höhe (Sonne und Hausdach werden bei flachen Kacheln nicht mehr abgeschnitten), Himmel und Wiese reichen bis zum Rand; auf dem Handy passen alle vier Tasten (Stopp und Halten als Symbol); Einstellungs-Kachel mit kompakten Pillen und umbrechenden Beschriftungen |
 | 1.4 | 16 | 05.10.2026 | Steuer-Kachel mit Garten-Panorama: Himmel nach Wetter und Tageszeit, Sonne mit Glühen, ziehende Wolken, Vögel, Mond und Sterne, Regen, Wind mit Blättern, Blitz, Schnee, Haus mit Fenster und Terrassentür (offen/zu), Gartenmöbel, Schatten der Markise; Größe passt sich der Kachel an |
 | 1.4 | 15 | 05.10.2026 | Urlaubsschalter des Hauses: im Urlaub bleibt die Markise eingefahren (Sicherheit gilt weiter), Anzeige in beiden Kacheln, Simulation |
 | 1.3 | 14 | 05.10.2026 | Einstellungs-Kachel im neuen Design: Karten mit Symbolen, Pillen-Stepper mit Gedrückthalten, runde Wochentags-Tasten, große Anwesenheitsanzeige, abgeblendetes Zeitfenster |
