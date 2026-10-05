@@ -48,6 +48,7 @@ class Markisensteuerung extends IPSModuleStrict
     public const ST_SENSOR = 12;
     public const ST_HOLD = 13;
     public const ST_WARNING = 14;
+    public const ST_VACATION = 15;
 
     // Werte der Variable "Zustand"
     public const STATE_RETRACTED = 0;
@@ -164,6 +165,8 @@ class Markisensteuerung extends IPSModuleStrict
         $this->RegisterPropertyInteger('GraceMinutes', 30);
         $this->RegisterPropertyInteger('ManualPauseMinutes', 60);
         $this->RegisterPropertyBoolean('ManualDetect', true);
+        $this->RegisterPropertyInteger('VacationVariableID', 0);
+        $this->RegisterPropertyBoolean('VacationInvert', false);
 
         // Halten (Abendmodus)
         $this->RegisterPropertyBoolean('HoldEnabled', true);
@@ -397,6 +400,7 @@ class Markisensteuerung extends IPSModuleStrict
             case 'SimPresence':
             case 'SimDoor':
             case 'SimWarning':
+            case 'SimVacation':
             case 'SimTime':
                 $this->SetSimValue($Ident, $Value);
                 return;
@@ -651,7 +655,8 @@ class Markisensteuerung extends IPSModuleStrict
             'graceLeft'   => $graceLeft,
             'absentSince' => $absentSince,
             'graceTotal'  => $graceTotal,
-            'hold'        => $this->HoldActive($present, $graceLeft, $isDay, $sky),
+            'vacation'    => $vacation = $this->VacationActive(),
+            'hold'        => $this->HoldActive($present && !$vacation, $graceLeft, $isDay, $sky),
         ];
     }
 
@@ -757,7 +762,14 @@ class Markisensteuerung extends IPSModuleStrict
             return $out('none', self::ST_MANUAL, sprintf($this->Translate('Manual operation → automatic paused until %s'), date('H:i', $c['manualUntil'])));
         }
 
-        // ---------- 3a. Halten (Abendmodus) ----------
+        // ---------- 3a. Urlaub: alle Automatiken des Hauses ruhen, die Markise bleibt eingefahren ----------
+        if ($c['vacation']) {
+            $attr['OnSince'] = 0;
+            $attr['OffSince'] = 0;
+            return $out($retractIfNeeded(), self::ST_VACATION, $this->Translate('Vacation → awning retracted'));
+        }
+
+        // ---------- 3b. Halten (Abendmodus) ----------
         if ($c['hold']) {
             $attr['OnSince'] = 0;
             $attr['OffSince'] = 0;
@@ -1257,6 +1269,7 @@ class Markisensteuerung extends IPSModuleStrict
             $o(self::ST_SENSOR, $this->Translate('Sensor fault'), 'sensor-triangle-exclamation', 0xDC2626),
             $o(self::ST_HOLD, $this->Translate('Hold (evening mode)'), 'moon-stars', 0x6366F1),
             $o(self::ST_WARNING, $this->Translate('Weather warning'), 'triangle-exclamation', 0xDC2626),
+            $o(self::ST_VACATION, $this->Translate('Vacation'), 'plane', 0x0F766E),
         ];
     }
 
@@ -1363,7 +1376,7 @@ class Markisensteuerung extends IPSModuleStrict
                 return 201;
             }
         }
-        foreach (['BrightnessVariableID', 'TemperatureVariableID', 'WindVariableID', 'GustVariableID', 'RainVariableID', 'PresenceVariableID', 'DoorVariableID', 'WarningVariableID'] as $prop) {
+        foreach (['BrightnessVariableID', 'TemperatureVariableID', 'WindVariableID', 'GustVariableID', 'RainVariableID', 'PresenceVariableID', 'DoorVariableID', 'WarningVariableID', 'VacationVariableID'] as $prop) {
             $id = $this->ReadPropertyInteger($prop);
             if ($id > 0 && !IPS_VariableExists($id)) {
                 $this->SendDebug('Konfiguration', $prop . ' (' . $id . ') existiert nicht', 0);
@@ -1387,7 +1400,7 @@ class Markisensteuerung extends IPSModuleStrict
             $this->UnregisterReference((int) $id);
         }
         $ids = [];
-        foreach (['BrightnessVariableID', 'TemperatureVariableID', 'WindVariableID', 'GustVariableID', 'RainVariableID', 'PresenceVariableID', 'DoorVariableID'] as $prop) {
+        foreach (['BrightnessVariableID', 'TemperatureVariableID', 'WindVariableID', 'GustVariableID', 'RainVariableID', 'PresenceVariableID', 'DoorVariableID', 'VacationVariableID'] as $prop) {
             $ids[] = $this->ReadPropertyInteger($prop);
         }
         $ids[] = $this->WarningID();
@@ -1434,6 +1447,14 @@ class Markisensteuerung extends IPSModuleStrict
                 ? sprintf($this->Translate('Used: own location %s / %s'), $this->Coord($own[0]), $this->Coord($own[1]))
                 : ($module !== null ? sprintf($this->Translate('Used: location module %s / %s'), $this->Coord($module[0]), $this->Coord($module[1])) : ''),
         ];
+        $vacID = $this->ReadPropertyInteger('VacationVariableID');
+        if ($vacID > 0 && IPS_VariableExists($vacID)) {
+            $captions['VacationInfo'] = sprintf(
+                $this->Translate('Vacation switch now: %s → %s'),
+                (string) @GetValueFormatted($vacID),
+                $this->VacationActive() ? $this->Translate('vacation (awning stays retracted)') : $this->Translate('no vacation')
+            );
+        }
         $doorID = $this->ReadPropertyInteger('DoorVariableID');
         if ($doorID > 0 && IPS_VariableExists($doorID)) {
             $raw = (int) round((float) GetValue($doorID));

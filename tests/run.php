@@ -1151,6 +1151,42 @@ test('Simulation: Terrassentür und Warnstufe', function (): void {
     check($m->value('SimWarning') === 4, 'Warnstufe begrenzt');
 });
 
+const V_VACATION = 208;
+
+test('Urlaub: Markise bleibt eingefahren, Sicherheit gilt weiter', function (): void {
+    Sym::variable(V_VACATION, VARIABLETYPE_BOOLEAN, false);
+    $m = markise(['VacationVariableID' => V_VACATION]);
+    check(isset($m->messages[V_VACATION]), 'Urlaubsschalter wird überwacht');
+    check(actions() === [V_EXTEND . '=true'], 'kein Urlaub: ausgefahren');
+    $m->RequestAction('Hold', true);
+    $m->sensor(V_VACATION, true);
+    check(lastAction() === V_RETRACT . '=true', 'Urlaub an: eingefahren, auch wenn Halten an war');
+    check($m->value('Status') === Markisensteuerung::ST_VACATION, 'Status Urlaub');
+    check($m->value('Hold') === false, 'Halten durch Urlaub beendet');
+    $m->advance(30);
+    check(count(Sym::$actions) === 2, 'fährt im Urlaub nicht wieder aus');
+    $m->sensor(V_WIND, 7);
+    check($m->value('Status') === Markisensteuerung::ST_WIND, 'Windalarm hat Vorrang');
+    $m->sensor(V_WIND, 2);
+    $m->sensor(V_VACATION, false);
+    $m->advance(20);
+    check(lastAction() === V_EXTEND . '=true', 'Urlaub vorbei: Automatik fährt wieder aus');
+    $tile = json_decode($m->attr('TileData'), true);
+    check(in_array('vacation', array_column($tile['sensors'], 'k'), true), 'Kachel zeigt Urlaub');
+});
+
+test('Urlaub invertiert und in der Simulation', function (): void {
+    Sym::variable(V_VACATION, VARIABLETYPE_BOOLEAN, false);
+    $m = markise(['VacationVariableID' => V_VACATION, 'VacationInvert' => true]);
+    check($m->value('Status') === Markisensteuerung::ST_VACATION && !in_array(V_EXTEND . '=true', actions(), true), 'aus = Urlaub: nicht ausgefahren (Zustand unbekannt → einmal Einfahren)');
+    $json = json_encode(json_decode($m->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE);
+    check(str_contains($json, 'Urlaubsschalter jetzt'), 'Formular zeigt die Deutung');
+    $s = markise(['VacationVariableID' => V_VACATION, 'SimulationMode' => true]);
+    check($s->has('SimVacation') && $s->value('SimVacation') === false, 'Simulationsvariable');
+    $s->RequestAction('SimVacation', true);
+    check($s->value('Status') === Markisensteuerung::ST_VACATION && Sym::$actions === [], 'simulierter Urlaub, nichts bewegt');
+});
+
 // =====================================================================
 // Zweite Kachel: Markisen-Einstellungen
 // =====================================================================
@@ -1312,6 +1348,15 @@ test('Einstellungs-Kachel: Übersetzung vollständig', function (): void {
         }
     }
     check($missing === [], 'fehlend: ' . implode(' | ', $missing));
+});
+
+test('Urlaub in der Einstellungs-Kachel: nur Anzeige', function (): void {
+    Sym::variable(V_VACATION, VARIABLETYPE_BOOLEAN, true);
+    $m = markise(['VacationVariableID' => V_VACATION]);
+    $s = einstellungen($m);
+    check(wert(kachel($s), 'Vacation') === true, 'Urlaub angezeigt');
+    check(isset($s->messages[V_VACATION][VM_UPDATE]), 'Änderungen werden überwacht');
+    check(throws(fn () => $s->RequestAction('Set', json_encode(['name' => 'Vacation', 'value' => false]))), 'nicht schaltbar');
 });
 
 // =====================================================================

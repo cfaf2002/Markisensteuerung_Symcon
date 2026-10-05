@@ -296,7 +296,16 @@
             "Time window from": "Zeitfenster von",
             "Time window to": "Zeitfenster bis",
             "Presence": "Anwesenheit",
-            "Someone at home": "Jemand zu Hause"
+            "Someone at home": "Jemand zu Hause",
+            "Vacation → awning retracted": "Urlaub → Markise eingefahren",
+            "Vacation": "Urlaub",
+            "Vacation switch now: %s → %s": "Urlaubsschalter jetzt: %s → %s",
+            "vacation (awning stays retracted)": "Urlaub (Markise bleibt eingefahren)",
+            "no vacation": "kein Urlaub",
+            "Simulation – vacation": "Simulation – Urlaub",
+            "Vacation: if the vacation switch of the house is on, the awning stays retracted and is not extended automatically. Safety still applies.": "Urlaub: Ist der Urlaubsschalter des Hauses an, bleibt die Markise eingefahren und fährt nicht automatisch aus. Die Sicherheit gilt weiter.",
+            "Vacation switch (optional)": "Urlaubsschalter (optional)",
+            "Inverted (off = vacation)": "Invertiert (aus = Urlaub)"
         }
     }
 }

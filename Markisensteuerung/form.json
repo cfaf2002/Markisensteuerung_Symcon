@@ -641,6 +641,34 @@
                     "type": "CheckBox",
                     "name": "ManualDetect",
                     "caption": "Detect operation via remote control or other scripts (changes of the actuator variables)"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Vacation: if the vacation switch of the house is on, the awning stays retracted and is not extended automatically. Safety still applies."
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "SelectVariable",
+                            "name": "VacationVariableID",
+                            "caption": "Vacation switch (optional)",
+                            "width": "400px",
+                            "validVariableTypes": [
+                                0
+                            ]
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "VacationInvert",
+                            "caption": "Inverted (off = vacation)"
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "name": "VacationInfo",
+                    "caption": ""
                 }
             ]
         },

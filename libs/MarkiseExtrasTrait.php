@@ -86,6 +86,25 @@ trait MarkiseExtrasTrait
     }
 
     // =====================================================================
+    // Urlaub
+    // =====================================================================
+
+    /**
+     * Urlaubsschalter des Hauses aktiv? (an = Urlaub, auf Wunsch invertiert; in der Simulation vorgebbar)
+     */
+    protected function VacationActive(): bool
+    {
+        if ($this->Simulating() && ($sim = $this->SimSensor('VacationVariableID')) !== null) {
+            return $sim > 0;
+        }
+        $raw = $this->ReadSensor('VacationVariableID', true);
+        if ($raw === null) {
+            return false;
+        }
+        return ($raw > 0) !== $this->ReadPropertyBoolean('VacationInvert');
+    }
+
+    // =====================================================================
     // DWD-Unwetterwarnung
     // =====================================================================
 

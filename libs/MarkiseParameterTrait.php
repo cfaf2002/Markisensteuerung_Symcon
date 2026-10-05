@@ -71,6 +71,10 @@ trait MarkiseParameterTrait
                     if ($presence !== null) {
                         $list[] = $presence;
                     }
+                    // Urlaub nur anzeigen: der Schalter gehört dem ganzen Haus, nicht der Markise
+                    if ($this->ReadPropertyInteger('VacationVariableID') > 0) {
+                        $list[] = ['name' => 'Vacation', 'type' => 'bool', 'label' => $this->Translate('Vacation'), 'min' => 0, 'max' => 1, 'step' => 1, 'unit' => '', 'value' => $this->VacationActive(), 'readOnly' => true];
+                    }
                     continue;
                 }
                 [$type, $label, $min, $max, $step, $unit] = $this->ParameterDefinition($name, $def);
@@ -98,7 +102,7 @@ trait MarkiseParameterTrait
             'weekdays'      => $weekdays,
             'weekdaysTitle' => $this->Translate('Released weekdays'),
             // Variablen, deren Änderung die Einstellungs-Kachel neu zeichnen soll
-            'watch'         => array_values(array_filter([$this->PresenceTargetID()], static fn (int $id): bool => $id > 0)),
+            'watch'         => array_values(array_filter([$this->PresenceTargetID(), $this->ReadPropertyInteger('VacationVariableID')], static fn (int $id): bool => $id > 0)),
         ]);
     }
 

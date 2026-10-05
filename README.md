@@ -2,7 +2,7 @@
 
 [![IP-Symcon ab 8.2](https://img.shields.io/badge/IP--Symcon-ab_8.2-0b6fb3.svg)](https://www.symcon.de)
 [![Optimiert für Symcon 9.0](https://img.shields.io/badge/optimiert_f%C3%BCr-Symcon_9.0-0b6fb3.svg)](https://www.symcon.de/de/service/dokumentation/installation/migrationen/v81-v90-q1-2026/)
-![Modul-Version 1.3](https://img.shields.io/badge/Modul--Version-1.3-informational.svg)
+![Modul-Version 1.4](https://img.shields.io/badge/Modul--Version-1.4-informational.svg)
 [![Tests](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml/badge.svg)](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml)
 ![Sprachen: Deutsch, Englisch](https://img.shields.io/badge/Sprachen-Deutsch_%7C_Englisch-blueviolet.svg)
 ![PHP 8.5](https://img.shields.io/badge/PHP-8.5-777bb4.svg?logo=php&logoColor=white)
@@ -13,6 +13,7 @@
 ![Sicherheit zuerst](https://img.shields.io/badge/Sicherheit-Wind_%7C_B%C3%B6en--Trend_%7C_Regen_%7C_Frost_%7C_Sensorausfall-red.svg)
 [![DWD-Unwetterwarnung](https://img.shields.io/badge/DWD-Unwetterwarnung-darkred.svg)](https://github.com/Wilkware/IPSymconWeatherWarning)
 ![Abendmodus](https://img.shields.io/badge/Abendmodus-Halten_%2B_Terrassent%C3%BCr-6366f1.svg)
+![Urlaub](https://img.shields.io/badge/Urlaub-Hausschalter-0f766e.svg)
 ![Umstieg](https://img.shields.io/badge/Umstieg-Skript_per_Knopfdruck_%C3%BCbernehmen-blue.svg)
 ![Simulation](https://img.shields.io/badge/Simulation-Testbetrieb_ohne_Fahrt-yellow.svg)
 ![Ohne Cloud](https://img.shields.io/badge/Cloud-nicht_n%C3%B6tig-brightgreen.svg)
@@ -58,6 +59,7 @@ Autor: Armin Frohwerk · Lizenz: MIT
 - **Grenzwerte und Wochentage in der Visualisierung einstellbar**, auf Wunsch
 - **Simulation (Testbetrieb):** Das Modul entscheidet wie gewohnt, bewegt die Markise aber nicht. Sensorwerte und Uhrzeit lassen sich vorgeben, jede Entscheidung landet im Protokoll. Der echte Wind- und Regenschutz bleibt dabei auf Wunsch aktiv
 - **Halten (Abendmodus):** Ein Schalter hält die Markise, wie sie ist, etwa um abends draußen zu sitzen. Nur Sicherheit fährt dann noch ein. Halten endet von selbst, wenn die Terrassentür geschlossen wird, die Karenz abgelaufen ist oder spätestens am nächsten Morgen
+- **Urlaub:** Der Urlaubsschalter des Hauses (z. B. eine KNX-Variable) hält die Markise eingefahren, solange Urlaub ist. Die Sicherheit gilt weiter, nach dem Urlaub übernimmt die Automatik wieder
 - **DWD-Unwetterwarnung:** Mit dem Modul „Unwetterwarnung“ von Wilkware fährt die Markise bei amtlichen Warnungen ab einer einstellbaren Stufe ein, meist schon bevor das Gewitter da ist. Die Warnstufe wird automatisch gefunden. Hitze- und UV-Warnungen zählen nicht, und fällt die Warnquelle aus, wird nichts blockiert
 - **Böen-Trend:** Steigen die Böen schnell an, fährt die Markise vorsorglich ein, bevor der Böenalarm erreicht ist
 - **Lux-Mittelwert und Schaltlimit:** Die Helligkeit wird über einige Minuten gemittelt, und die Sonnenautomatik fährt höchstens X-mal pro Stunde. Bei Aprilwetter bleibt die Markise ruhig
@@ -109,7 +111,8 @@ Bei jeder Sensoränderung und zusätzlich einmal pro Minute geht das Modul diese
 | 1 | Windalarm, Böenalarm, Böen steigen schnell, Unwetterwarnung, Windsensor ohne Werte, Regen, Frost, Helligkeitssensor eingefroren, Wind- oder Regensperre läuft | einfahren (auch bei Automatik aus, wenn eingestellt) |
 | 2 | Automatik aus | nichts tun |
 | 3 | Handbetrieb-Pause läuft | nichts tun |
-| 3a | Halten (Abendmodus) ist an | nichts tun |
+| 3a | Urlaub | einfahren |
+| 3b | Halten (Abendmodus) ist an | nichts tun |
 | 4 | Heute nicht freigegeben | einfahren |
 | 5 | Nacht (Sonne unter der eingestellten Höhe) | einfahren |
 | 6 | Außerhalb des Zeitfensters | einfahren |
@@ -187,6 +190,7 @@ Breiten- und Längengrad für Tag/Nacht und Sonnenrichtung. Stehen beide auf 0, 
 |---|---|---|
 | Karenz nach dem Verlassen | 30 min | |
 | Automatik nach Handbetrieb pausieren | 60 min | 0 = keine Pause |
+| Urlaubsschalter | – | Optional, Boolean. An = Urlaub; mit „Invertiert“ gilt aus = Urlaub. Im Urlaub fährt die Markise ein und nicht automatisch aus, Halten endet. Unter dem Feld steht der aktuelle Wert und seine Deutung |
 | Bedienung von außen erkennen | an | Änderungen an den Aktorvariablen, die nicht vom Modul kommen, zählen als Handbetrieb. Bei Tastervariablen zählt nur das Auslösen, bei Positionen nur eine echte Änderung |
 
 ### Halten (Abendmodus)
@@ -235,7 +239,7 @@ Eine eigene Instanz vom Typ **Markisen Einstellungen** liefert eine zweite Kache
 - **Sonnenautomatik:** Ausfahren ab, Einfahren unter, Mindesttemperatur, Windgrenze, Ausfahr- und Einfahrverzögerung
 - **Sicherheit:** Windalarm, Böenalarm und, mit Unwetterwarnung, „Einfahren ab Stufe“
 - **Zeiten:** Wochentage als Tasten Mo–So, Tag/Nacht-Prüfung, Zeitfenster mit Uhrzeiten
-- **Anwesenheit:** Schalter für die eingestellte Anwesenheitsvariable (Beschriftung = Name der Variable) und Karenz. Der Schalter bedient die Variable über ihre Aktion wie ein Taster in der Visualisierung; ohne Aktion wird er nur angezeigt. In der Simulation schaltet er die Simulationsvariable. Änderungen von außen erscheinen sofort
+- **Anwesenheit:** Urlaub wird mit angezeigt, lässt sich hier aber nicht schalten, weil der Schalter dem ganzen Haus gehört. Schalter für die eingestellte Anwesenheitsvariable (Beschriftung = Name der Variable) und Karenz. Der Schalter bedient die Variable über ihre Aktion wie ein Taster in der Visualisierung; ohne Aktion wird er nur angezeigt. In der Simulation schaltet er die Simulationsvariable. Änderungen von außen erscheinen sofort
 
 Bei breiter Kachel stehen links Sonnenautomatik und Zeiten, rechts Sicherheit und Anwesenheit.
 
@@ -268,7 +272,7 @@ Die Werte gehören weiterhin der Markisensteuerung. Die Einstellungs-Instanz spe
 | SetLuxOn, SetTempMin, SetWindMax, SetWindAlarm, SetGustAlarm | Grenzwerte | Integer/Float | Schieberegler | Einstellungen in der Visualisierung |
 | SetDayCheck, SetWeekday1 … SetWeekday7 | Tag/Nacht-Prüfung, Montag … Sonntag | Boolean | Schalter | Einstellungen in der Visualisierung |
 
-**Status:** 0 Automatik aus, 1 Wartet auf Sonne, 2 Sonnenschutz aktiv, 3 Handbetrieb, 4 Abwesend – Karenz, 5 Abwesend, 6 Tag nicht freigegeben, 7 Nacht, 8 Außerhalb des Zeitfensters, 9 Windalarm, 10 Regen, 11 Frost, 12 Sensorfehler, 13 Halten (Abendmodus), 14 Unwetterwarnung
+**Status:** 0 Automatik aus, 1 Wartet auf Sonne, 2 Sonnenschutz aktiv, 3 Handbetrieb, 4 Abwesend – Karenz, 5 Abwesend, 6 Tag nicht freigegeben, 7 Nacht, 8 Außerhalb des Zeitfensters, 9 Windalarm, 10 Regen, 11 Frost, 12 Sensorfehler, 13 Halten (Abendmodus), 14 Unwetterwarnung, 15 Urlaub
 
 Änderungen an den Einstellvariablen landen direkt in den Eigenschaften der Instanz. Es gibt also nur eine Stelle, an der ein Grenzwert steht.
 
@@ -313,6 +317,7 @@ Zum Ausprobieren der Grenzwerte, ohne dass die Markise ständig fährt. Einschal
 | SimPresence | Simulation – jemand zu Hause | Schalter |
 | SimDoor | Simulation – Terrassentür offen | Schalter (nur mit Terrassentür) |
 | SimWarning | Simulation – Unwetter-Warnstufe | Schieberegler 0–4 (nur mit Unwetterwarnung) |
+| SimVacation | Simulation – Urlaub | Schalter (nur mit Urlaubsschalter), an = Urlaub |
 | SimTime | Simulation – Uhrzeit (HH:MM, leer = jetzt) | Werteingabe, z. B. `21:30` für den Abend oder `17:00` für die Sonnenrichtung |
 | SimLog | Simulation – Protokoll | die letzten 15 Entscheidungen, neueste oben, z. B. „08:49:11 Würde senden: Ausfahren“ |
 
@@ -441,6 +446,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.4 | 15 | 05.10.2026 | Urlaubsschalter des Hauses: im Urlaub bleibt die Markise eingefahren (Sicherheit gilt weiter), Anzeige in beiden Kacheln, Simulation |
 | 1.3 | 14 | 05.10.2026 | Einstellungs-Kachel im neuen Design: Karten mit Symbolen, Pillen-Stepper mit Gedrückthalten, runde Wochentags-Tasten, große Anwesenheitsanzeige, abgeblendetes Zeitfenster |
 | 1.3 | 13 | 05.10.2026 | Anwesenheitsvariable, die unter die Instanz verschoben wurde, lässt sich wieder schalten (Kachel, Objektbaum, Visualisierung); Einstellungs-Kachel scrollt nur unterhalb des Titels |
 | 1.3 | 12 | 05.10.2026 | Einstellungs-Kachel lädt beim Öffnen immer frische Werte (nach einem Update fehlten sonst Anwesenheit und Wochentage, bis sich ein Wert änderte) |

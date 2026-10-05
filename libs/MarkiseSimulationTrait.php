@@ -29,6 +29,7 @@ trait MarkiseSimulationTrait
         'PresenceVariableID'    => 'SimPresence',
         'DoorVariableID'        => 'SimDoor',
         'WarningVariableID'     => 'SimWarning',
+        'VacationVariableID'    => 'SimVacation',
     ];
 
     /** Einträge im Simulationsprotokoll */
@@ -64,6 +65,7 @@ trait MarkiseSimulationTrait
             'SimPresence' => ['Simulation – someone at home', VARIABLETYPE_BOOLEAN, $switch('house-user'), 205],
             'SimDoor'     => ['Simulation – terrace door open', VARIABLETYPE_BOOLEAN, $switch('door-open'), 206],
             'SimWarning'  => ['Simulation – weather warning level', VARIABLETYPE_INTEGER, $slider('triangle-exclamation', 0, 4, 1, '', 0), 207],
+            'SimVacation' => ['Simulation – vacation', VARIABLETYPE_BOOLEAN, $switch('plane'), 210],
         ];
         $sensorOf = array_flip(self::SIM_SENSORS);
         foreach ($defs as $ident => [$name, $type, $presentation, $pos]) {
@@ -102,6 +104,7 @@ trait MarkiseSimulationTrait
             case 'SimRain':
             case 'SimPresence':
             case 'SimDoor':
+            case 'SimVacation':
                 $value = (bool) $value;
                 break;
             case 'SimWarning':
@@ -148,6 +151,7 @@ trait MarkiseSimulationTrait
                 'SimRain', 'SimPresence' => $real > 0,
                 'SimDoor'                => (int) round($real) !== $this->ReadPropertyInteger('DoorClosedValue'),
                 'SimWarning'             => max(0, min(4, (int) round($real))),
+                'SimVacation'            => ($real > 0) !== $this->ReadPropertyBoolean('VacationInvert'),
                 default                  => round($real, 1),
             };
             $this->SetValueIfChanged($ident, $value);

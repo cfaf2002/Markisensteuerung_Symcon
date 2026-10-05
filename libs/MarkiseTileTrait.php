@@ -161,6 +161,16 @@ trait MarkiseTileTrait
                 'note'  => '',
             ];
         }
+        if ($this->ReadPropertyInteger('VacationVariableID') > 0) {
+            $list[] = [
+                'k'     => 'vacation',
+                'label' => $this->Translate('Vacation'),
+                'value' => $c['vacation'] ? $this->Translate('yes') : $this->Translate('no'),
+                'limit' => '',
+                'ok'    => $c['vacation'] ? false : null,
+                'note'  => '',
+            ];
+        }
         $door = $this->DoorClosed();
         if ($door !== null) {
             // Wert der Variable mit anzeigen, damit eine falsche Einstellung „Wert für geschlossen“ sofort auffällt
@@ -207,7 +217,7 @@ trait MarkiseTileTrait
         return match ($status) {
             self::ST_SUN => 'ok',
             self::ST_WIND, self::ST_RAIN, self::ST_FROST, self::ST_SENSOR, self::ST_WARNING => 'bad',
-            self::ST_OFF, self::ST_WEEKDAY, self::ST_NIGHT, self::ST_TIME => 'off',
+            self::ST_OFF, self::ST_WEEKDAY, self::ST_NIGHT, self::ST_TIME, self::ST_VACATION => 'off',
             default => 'info',
         };
     }
