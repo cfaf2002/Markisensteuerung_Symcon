@@ -18,6 +18,7 @@ const VARIABLETYPE_INTEGER = 1;
 const VARIABLETYPE_FLOAT = 2;
 const VARIABLETYPE_STRING = 3;
 const IPS_KERNELSTARTED = 10001;
+const IM_CHANGESETTINGS = 10506;
 const KR_READY = 10103;
 const VM_UPDATE = 10603;
 const VARIABLE_PRESENTATION_VALUE_PRESENTATION = '{3319437D-7CDE-699D-750A-3C6A3841FA75}';
@@ -148,8 +149,20 @@ function IPS_SetProperty(int $id, string $name, mixed $value): bool
 function IPS_ApplyChanges(int $id): bool
 {
     Sym::$objects[$id]->ApplyChanges();
+    // wie Symcon: angemeldete Instanzen über die geänderten Einstellungen informieren
+    foreach (Sym::$objects as $other) {
+        if ($other !== Sym::$objects[$id] && isset($other->messages[$id][IM_CHANGESETTINGS])) {
+            $other->MessageSink(Sym::$now, $id, IM_CHANGESETTINGS, []);
+        }
+    }
     return true;
 }
+
+function IPS_GetName(int $id): string { return 'Markise'; }
+
+function MARKISE_SetParameter(int $id, string $name, mixed $value): bool { return Sym::$objects[$id]->SetParameter($name, $value); }
+
+function MARKISE_GetParameters(int $id): string { return Sym::$objects[$id]->GetParameters(); }
 
 function VISU_PostNotification(int $id, string $title, string $text, string $type, int $target): int|false
 {
@@ -290,6 +303,7 @@ set_error_handler(static function (int $no, string $str): bool {
 });
 
 require __DIR__ . '/../Markisensteuerung/module.php';
+require __DIR__ . '/../MarkisenEinstellungen/module.php';
 
 /** Testklasse mit steuerbarer Uhr */
 final class TestMarkise extends Markisensteuerung

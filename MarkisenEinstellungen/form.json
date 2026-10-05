@@ -1,0 +1,59 @@
+{
+    "elements": [
+        {
+            "type": "Label",
+            "caption": "Second tile for the awning control: limits, delays, weekdays and times at a glance and adjustable in the tile visualization."
+        },
+        {
+            "type": "SelectInstance",
+            "name": "TargetInstance",
+            "caption": "Awning control",
+            "width": "400px",
+            "validModules": [
+                "{7EF9655A-D369-4F11-A33B-CE8053758685}"
+            ]
+        },
+        {
+            "type": "CheckBox",
+            "name": "AllowChanges",
+            "caption": "Values can be changed in the tile (off = display only)"
+        },
+        {
+            "type": "Select",
+            "name": "TileTheme",
+            "caption": "Color scheme",
+            "options": [
+                {
+                    "caption": "Symcon design – colors of the visualization",
+                    "value": 0
+                },
+                {
+                    "caption": "Dark",
+                    "value": 1
+                },
+                {
+                    "caption": "Light",
+                    "value": 2
+                }
+            ]
+        }
+    ],
+    "actions": [],
+    "status": [
+        {
+            "code": 102,
+            "icon": "active",
+            "caption": "Active"
+        },
+        {
+            "code": 200,
+            "icon": "error",
+            "caption": "Please select the awning control"
+        },
+        {
+            "code": 201,
+            "icon": "error",
+            "caption": "The selected instance is not an awning control"
+        }
+    ]
+}

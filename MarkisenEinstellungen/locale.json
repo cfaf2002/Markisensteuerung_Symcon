@@ -1,0 +1,19 @@
+{
+    "translations": {
+        "de": {
+            "Second tile for the awning control: limits, delays, weekdays and times at a glance and adjustable in the tile visualization.": "Zweite Kachel für die Markisensteuerung: Grenzwerte, Verzögerungen, Wochentage und Zeiten auf einen Blick und in der Kachel-Visualisierung einstellbar.",
+            "Awning control": "Markisensteuerung",
+            "Values can be changed in the tile (off = display only)": "Werte in der Kachel änderbar (aus = nur anzeigen)",
+            "Color scheme": "Farbschema",
+            "Symcon design – colors of the visualization": "Symcon-Design – Farben der Visualisierung",
+            "Dark": "Dunkel",
+            "Light": "Hell",
+            "Active": "Aktiv",
+            "Please select the awning control": "Bitte die Markisensteuerung auswählen",
+            "The selected instance is not an awning control": "Die gewählte Instanz ist keine Markisensteuerung",
+            "The selected instance is not an awning control.": "Die gewählte Instanz ist keine Markisensteuerung.",
+            "Please select the awning control in the instance.": "Bitte in der Instanz die Markisensteuerung auswählen.",
+            "Display only – changes are switched off in the instance": "Nur Anzeige – Änderungen sind in der Instanz ausgeschaltet"
+        }
+    }
+}

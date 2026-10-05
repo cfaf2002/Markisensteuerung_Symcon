@@ -136,6 +136,16 @@ try {
     $out = (string) ob_get_clean();
     ok(str_contains($out, 'settings taken over') || str_contains($out, 'übernommen'), 'Übernahme aus dem Skript');
 
+    // Zweite Kachel: Markisen-Einstellungen
+    $set = IPS_CreateInstance('{196B0C7E-7EE0-4677-9DE5-B6C6FF3B787F}');
+    ok($set > 0, 'Einstellungs-Instanz angelegt');
+    IPS_SetProperty($set, 'TargetInstance', $id);
+    IPS_ApplyChanges($set);
+    ok(IPS_GetInstance($set)['InstanceStatus'] === 102, 'Einstellungs-Instanz Status 102');
+    ok(str_contains(MARKSET_GetVisualizationTile($set), '"LuxOn"'), 'Einstellungs-Kachel mit Grundwerten');
+    IPS_RequestAction($set, 'Set', json_encode(['name' => 'LuxOn', 'value' => 33000]));
+    ok(IPS_GetProperty($id, 'LuxOn') === 33000, 'Änderung aus der Einstellungs-Kachel gespeichert');
+
     $tile = MARKISE_GetVisualizationTile($id);
     ok(!str_contains($tile, '/*INITIAL_DATA*/'), 'Kachel mit Startdaten');
     $form = json_decode(IPS_GetConfigurationForm($id), true);

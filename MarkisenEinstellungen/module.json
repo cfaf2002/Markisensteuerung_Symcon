@@ -1,0 +1,12 @@
+{
+    "id": "{196B0C7E-7EE0-4677-9DE5-B6C6FF3B787F}",
+    "name": "Markisen Einstellungen",
+    "type": 3,
+    "vendor": "Armin Frohwerk",
+    "aliases": [],
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "MARKSET",
+    "url": "https://github.com/cfaf2002/Markisensteuerung_Symcon"
+}

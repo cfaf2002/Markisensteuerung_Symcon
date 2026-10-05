@@ -2,13 +2,14 @@
 
 [![IP-Symcon ab 8.2](https://img.shields.io/badge/IP--Symcon-ab_8.2-0b6fb3.svg)](https://www.symcon.de)
 [![Optimiert für Symcon 9.0](https://img.shields.io/badge/optimiert_f%C3%BCr-Symcon_9.0-0b6fb3.svg)](https://www.symcon.de/de/service/dokumentation/installation/migrationen/v81-v90-q1-2026/)
-![Modul-Version 1.2](https://img.shields.io/badge/Modul--Version-1.2-informational.svg)
+![Modul-Version 1.3](https://img.shields.io/badge/Modul--Version-1.3-informational.svg)
 [![Tests](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml/badge.svg)](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml)
 ![Sprachen: Deutsch, Englisch](https://img.shields.io/badge/Sprachen-Deutsch_%7C_Englisch-blueviolet.svg)
 ![PHP 8.5](https://img.shields.io/badge/PHP-8.5-777bb4.svg?logo=php&logoColor=white)
 [![SDK: IPSModuleStrict](https://img.shields.io/badge/SDK-IPSModuleStrict-success.svg)](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/module/)
 [![Darstellungen statt Profile](https://img.shields.io/badge/Variablen-Darstellungen-success.svg)](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/darstellungen/)
 [![Kachel-Visualisierung: HTML-SDK](https://img.shields.io/badge/Kachel--Visualisierung-HTML--SDK-orange.svg)](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/html-sdk/)
+![Zwei Kacheln](https://img.shields.io/badge/Kacheln-Steuerung_%2B_Einstellungen-orange.svg)
 ![Sicherheit zuerst](https://img.shields.io/badge/Sicherheit-Wind_%7C_B%C3%B6en--Trend_%7C_Regen_%7C_Frost_%7C_Sensorausfall-red.svg)
 [![DWD-Unwetterwarnung](https://img.shields.io/badge/DWD-Unwetterwarnung-darkred.svg)](https://github.com/Wilkware/IPSymconWeatherWarning)
 ![Abendmodus](https://img.shields.io/badge/Abendmodus-Halten_%2B_Terrassent%C3%BCr-6366f1.svg)
@@ -62,6 +63,7 @@ Autor: Armin Frohwerk · Lizenz: MIT
 - **Lux-Mittelwert und Schaltlimit:** Die Helligkeit wird über einige Minuten gemittelt, und die Sonnenautomatik fährt höchstens X-mal pro Stunde. Bei Aprilwetter bleibt die Markise ruhig
 - **Standort:** aus dem Location-Modul oder eigene Koordinaten in der Instanz, per Taste aus dem Location-Modul übernehmbar
 - **Übernahme aus dem bisherigen Skript:** Variablen-IDs, Grenzwerte und Wochentage per Knopfdruck einlesen. Das Skript wird nur gelesen, nie ausgeführt
+- **Zweite Kachel „Markisen Einstellungen“:** Grenzwerte, Verzögerungen, Wochentage, Tag/Nacht, Zeitfenster und Karenz übersichtlich anzeigen und mit Plus/Minus, Schaltern und Wochentags-Tasten ändern. Auf Wunsch nur zur Anzeige
 - **Eigene Kachel** im Symcon-Design mit gezeichneter Markise, Wetter, Begründung, Countdown, Sensorliste und Tasten
 - Deutsch und Englisch nach Symcon-Konvention: englische Texte im Modul, deutsche Übersetzung in `locale.json`
 - Automatische Tests mit GitHub-Workflow
@@ -95,6 +97,8 @@ https://github.com/cfaf2002/Markisensteuerung_Symcon
 ```
 
 Danach eine Instanz **Markisensteuerung** anlegen, Ansteuerung und Sensoren auswählen, fertig. Die Automatik ist nach dem Anlegen eingeschaltet.
+
+Für die zweite Kachel zusätzlich eine Instanz **Markisen Einstellungen** anlegen und darin die Markisensteuerung auswählen (siehe [Einstellungs-Kachel](#einstellungs-kachel-markisen-einstellungen)).
 
 ## 4. So entscheidet das Modul
 
@@ -224,6 +228,24 @@ Die Kachel zeigt die Markise an einer Hauswand, aufgerollt oder ausgefahren, und
 
 Farbschemas: **Symcon-Design** übernimmt Schrift- und Akzentfarbe der gewählten Visualisierung (das Markisentuch ist in der Akzentfarbe gestreift), **Dunkel** und **Hell** sind feste Schemas. Ist die Kachel nicht zu sehen, ruhen Animationen und Countdown. Die Systemeinstellung „Bewegung reduzieren“ wird beachtet.
 
+### Einstellungs-Kachel (Markisen Einstellungen)
+
+Eine eigene Instanz vom Typ **Markisen Einstellungen** liefert eine zweite Kachel für die Grundwerte. So bleibt die Steuer-Kachel übersichtlich, und die Werte lassen sich trotzdem bequem pflegen.
+
+- **Sonnenautomatik:** Ausfahren ab, Einfahren unter, Mindesttemperatur, Windgrenze, Ausfahr- und Einfahrverzögerung
+- **Sicherheit:** Windalarm, Böenalarm und, mit Unwetterwarnung, „Einfahren ab Stufe“
+- **Zeiten:** Wochentage als Tasten Mo–So, Tag/Nacht-Prüfung, Zeitfenster mit Uhrzeiten, Karenz
+
+Zahlen ändern sich mit Plus und Minus. Mehrere schnelle Klicks werden gesammelt und erst nach einer kurzen Pause gespeichert, damit die Markisensteuerung nicht bei jedem Klick neu übernimmt. Wind und Böen nutzen die Einheit des jeweiligen Sensors. Ist die Kachel breit genug, stehen die Gruppen in zwei Spalten; bei wenig Höhe lässt sie sich scrollen.
+
+Die Werte gehören weiterhin der Markisensteuerung. Die Einstellungs-Instanz speichert davon nichts selbst, sondern ruft `MARKISE_SetParameter` auf. Änderungen im Formular der Markisensteuerung erscheinen sofort auch in der Kachel. Setzt man die Einfahrgrenze über die Ausfahrgrenze, zieht die Ausfahrgrenze mit (und umgekehrt), damit die Instanz gültig bleibt.
+
+| Einstellung | Standard | Beschreibung |
+|---|---|---|
+| Markisensteuerung | – | Die Instanz, deren Werte angezeigt werden |
+| Werte in der Kachel änderbar | an | Aus = nur anzeigen. Dann lehnt auch die Instanz jede Änderung ab |
+| Farbschema | Symcon-Design | wie bei der Steuer-Kachel |
+
 ## 7. Variablen und Darstellungen
 
 | Ident | Name | Typ | Darstellung | Bedingung |
@@ -254,6 +276,8 @@ MARKISE_Retract(int $InstanzID): bool       // einfahren (zählt als Handbetrieb
 MARKISE_Stop(int $InstanzID): bool          // anhalten, sofern eine Stopp-Variable eingestellt ist
 MARKISE_SetAutomatic(int $InstanzID, bool $Aktiv): void
 MARKISE_SetHold(int $InstanzID, bool $Aktiv): void   // Halten (Abendmodus) ein/aus
+MARKISE_GetParameters(int $InstanzID): string         // Grundwerte als JSON (für die Einstellungs-Kachel)
+MARKISE_SetParameter(int $InstanzID, string $Name, mixed $Wert): bool   // einen Grundwert ändern, z. B. ('LuxOn', 25000)
 MARKISE_EndManualPause(int $InstanzID): void
 MARKISE_RestartGrace(int $InstanzID): void  // Abwesenheits-Karenz neu starten
 MARKISE_EndGrace(int $InstanzID): void      // Abwesenheits-Karenz sofort beenden
@@ -368,6 +392,7 @@ Nach dem Umstieg das alte Skript und seine Ereignisse deaktivieren, damit nicht 
 - Kein `eval`, keine Internetverbindung, keine Zugangsdaten. Die Kommunikation der Kachel ist durch das Passwort der Visualisierung geschützt.
 - Ein Semaphor verhindert, dass Timer und Sensoränderungen gleichzeitig entscheiden und doppelte Befehle schicken.
 - Die Übernahme aus dem Skript liest den Skripttext nur und wertet ihn mit regulären Ausdrücken aus; er wird nie ausgeführt. Skripte über 256 KB werden abgelehnt, jede gefundene ID wird auf Existenz geprüft, und gespeichert wird erst nach Bestätigung im Formular.
+- Die Einstellungs-Kachel kann nur die Grundwerte aus einer festen Liste ändern, nie Aktor- oder Sensor-IDs. Jeder Wert wird in der Markisensteuerung auf Typ und Bereich geprüft; die Einstellung „nur anzeigen“ sperrt Änderungen auch serverseitig, nicht nur in der Kachel.
 - Fehlt die Warnstufe der Unwetterwarnung, blockiert das nichts. So kann ein ausgefallener Warndienst die Markise nicht dauerhaft einfahren lassen. Der Windschutz über die eigenen Sensoren bleibt davon unberührt.
 
 **Geschwindigkeit**
@@ -384,6 +409,8 @@ Nach dem Umstieg das alte Skript und seine Ereignisse deaktivieren, damit nicht 
 | Pfad | Inhalt |
 |---|---|
 | `Markisensteuerung/` | Modul: Entscheidung, Variablen, Formular und Kachel (`tile.html`) |
+| `MarkisenEinstellungen/` | Zweites Modul: Einstellungs-Kachel |
+| `libs/MarkiseParameterTrait.php` | Grundwerte für die Einstellungs-Kachel (Liste, Prüfung, Speichern) |
 | `libs/MarkiseSunTrait.php` | Sonnenstand aus dem Symcon-Standort |
 | `libs/MarkiseActuatorTrait.php` | Ansteuerung und Erkennung von Handbetrieb |
 | `libs/MarkiseTileTrait.php` | Kacheldaten |
@@ -409,6 +436,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.3 | 10 | 05.10.2026 | Zweite Kachel „Markisen Einstellungen“ für Grundwerte, Wochentage und Zeiten; neue Befehle `MARKISE_GetParameters` und `MARKISE_SetParameter` |
 | 1.2 | 9 | 05.10.2026 | Kachel: Ampel bei Helligkeit und Temperatur berücksichtigt die Hysterese (grau statt rot zwischen Ein- und Ausfahrgrenze) |
 | 1.2 | 8 | 05.10.2026 | Terrassentür: aktueller Wert und Deutung im Formular und in der Kachel, Taste „Tür ist jetzt zu“ übernimmt den Wert für „geschlossen“ |
 | 1.2 | 7 | 05.10.2026 | Halten (Abendmodus) mit Terrassentür, DWD-Unwetterwarnung, Böen-Trend, Lux-Mittelwert, Schaltlimit, eigener Standort mit Übernahme aus dem Location-Modul, Übernahme der Einstellungen aus dem bisherigen Skript, Simulation für Tür und Warnstufe |

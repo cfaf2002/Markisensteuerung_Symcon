@@ -1152,6 +1152,127 @@ test('Simulation: Terrassentür und Warnstufe', function (): void {
 });
 
 // =====================================================================
+// Zweite Kachel: Markisen-Einstellungen
+// =====================================================================
+
+const MARKISE_GUID = '{7EF9655A-D369-4F11-A33B-CE8053758685}';
+
+function einstellungen(TestMarkise $m, array $props = []): MarkisenEinstellungen
+{
+    Sym::$instances[$m->InstanceID] = ['module' => MARKISE_GUID, 'props' => []];
+    $s = new MarkisenEinstellungen(2000);
+    $s->Create();
+    $s->prop('TargetInstance', $m->InstanceID);
+    foreach ($props as $k => $v) {
+        $s->prop($k, $v);
+    }
+    $s->ApplyChanges();
+    return $s;
+}
+
+function kachel(MarkisenEinstellungen $s): array
+{
+    return json_decode($s->attr('TileData'), true);
+}
+
+function wert(array $tile, string $name): mixed
+{
+    foreach ($tile['groups'] as $g) {
+        foreach ($g['items'] as $i) {
+            if ($i['name'] === $name) {
+                return $i['value'];
+            }
+        }
+    }
+    foreach ($tile['weekdays'] as $w) {
+        if ($w['name'] === $name) {
+            return $w['value'];
+        }
+    }
+    return null;
+}
+
+test('Einstellungs-Kachel: zeigt die Grundwerte der Markisensteuerung', function (): void {
+    $m = markise(['LuxOn' => 25000, 'LuxOff' => 15000, 'Weekday3' => false]);
+    $s = einstellungen($m);
+    check($s->status === 102 && $s->visualizationType === 1, 'aktiv mit Kachel');
+    check(isset($s->messages[$m->InstanceID][IM_CHANGESETTINGS]) && isset($s->references[$m->InstanceID]), 'hört auf Änderungen der Markise');
+    $t = kachel($s);
+    check(array_column($t['groups'], 'title') === ['Sonnenautomatik', 'Sicherheit', 'Zeiten'], 'Gruppen übersetzt');
+    check(wert($t, 'LuxOn') === 25000 && wert($t, 'LuxOff') === 15000, 'Luxgrenzen');
+    check(wert($t, 'Weekday3') === false && wert($t, 'Weekday1') === true, 'Wochentage');
+    check(wert($t, 'TimeFrom') === '09:00', 'Zeitfenster als HH:MM');
+    check(wert($t, 'WarningMinLevel') === null, 'Warnstufe nur mit Unwetterwarnung');
+    check(str_contains($s->GetVisualizationTile(), '"LuxOn"'), 'Startdaten in der Kachel');
+});
+
+test('Einstellungs-Kachel: Änderungen landen in der Markisensteuerung', function (): void {
+    $m = markise(['LuxOn' => 25000, 'LuxOff' => 15000]);
+    $s = einstellungen($m);
+    $s->RequestAction('Set', json_encode(['name' => 'LuxOn', 'value' => 30000]));
+    check($m->properties['LuxOn'] === 30000, 'Eigenschaft der Markise geändert');
+    check(wert(kachel($s), 'LuxOn') === 30000, 'Kachel aktualisiert');
+    $s->RequestAction('Set', json_encode(['name' => 'LuxOff', 'value' => 40000]));
+    check($m->properties['LuxOff'] === 40000 && $m->properties['LuxOn'] === 40000, 'Einfahrgrenze über Ausfahrgrenze: Ausfahrgrenze zieht mit');
+    check($m->status === 102, 'Markise bleibt gültig (kein Status 203)');
+    $s->RequestAction('Set', json_encode(['name' => 'TempMin', 'value' => 99]));
+    check($m->properties['TempMin'] === 40.0, 'auf den Bereich begrenzt');
+    $s->RequestAction('Set', json_encode(['name' => 'Weekday7', 'value' => false]));
+    check($m->properties['Weekday7'] === false, 'Wochentag');
+    $s->RequestAction('Set', json_encode(['name' => 'TimeTo', 'value' => '21:30']));
+    check(json_decode($m->properties['TimeTo'], true)['hour'] === 21, 'Uhrzeit');
+    $m->prop('DelayOn', 12);
+    IPS_ApplyChanges($m->InstanceID);
+    check(wert(kachel($s), 'DelayOn') === 12, 'Änderung im Formular erscheint in der Kachel');
+});
+
+test('Einstellungs-Kachel: ungültige Eingaben werden abgelehnt', function (): void {
+    $m = markise();
+    $s = einstellungen($m);
+    check(throws(fn () => $s->RequestAction('Set', json_encode(['name' => 'ExtendVariableID', 'value' => 1]))), 'Aktor-ID nicht änderbar');
+    check(throws(fn () => $s->RequestAction('Set', json_encode(['name' => 'LuxOn', 'value' => 'abc']))), 'Text statt Zahl');
+    check(throws(fn () => $s->RequestAction('Set', json_encode(['name' => 'TimeFrom', 'value' => '25:00']))), 'ungültige Uhrzeit');
+    check(throws(fn () => $s->RequestAction('Set', 'kein JSON')), 'kaputte Daten');
+    check(throws(fn () => $s->RequestAction('Andere', 1)), 'unbekannter Ident');
+    $ro = einstellungen($m, ['AllowChanges' => false]);
+    check(throws(fn () => $ro->RequestAction('Set', json_encode(['name' => 'LuxOn', 'value' => 1000]))), 'nur Anzeige');
+    check(kachel($ro)['readOnly'] === true, 'Kachel weiß, dass nur angezeigt wird');
+    $none = new MarkisenEinstellungen(2001);
+    $none->Create();
+    $none->ApplyChanges();
+    check($none->status === 200 && kachel($none)['error'] !== '', 'ohne Markise: Hinweis');
+    Sym::$instances[950]['module'] = 'visu';
+    $none->prop('TargetInstance', 950);
+    $none->ApplyChanges();
+    check($none->status === 201, 'falsche Instanz: Status 201');
+});
+
+test('Einstellungs-Kachel: Übersetzung vollständig', function (): void {
+    $dir = __DIR__ . '/../MarkisenEinstellungen/';
+    $de = json_decode((string) file_get_contents($dir . 'locale.json'), true)['translations']['de'];
+    $missing = [];
+    preg_match_all("/Translate\\('((?:[^'\\\\]|\\\\.)*)'\\)/", (string) file_get_contents($dir . 'module.php'), $m);
+    foreach ($m[1] as $s) {
+        if (!isset($de[stripcslashes($s)])) {
+            $missing[] = $s;
+        }
+    }
+    $form = json_decode((string) file_get_contents($dir . 'form.json'), true);
+    array_walk_recursive($form, function ($v, $k) use ($de, &$missing): void {
+        if ($k === 'caption' && $v !== '' && !isset($de[$v])) {
+            $missing[] = $v;
+        }
+    });
+    preg_match_all('/data-t="([^"]+)"/', (string) file_get_contents($dir . 'tile.html'), $tm);
+    foreach ($tm[1] as $s) {
+        if (!isset($de[$s])) {
+            $missing[] = $s;
+        }
+    }
+    check($missing === [], 'fehlend: ' . implode(' | ', $missing));
+});
+
+// =====================================================================
 
 echo PHP_EOL . $passed . ' Prüfungen bestanden, ' . count($failed) . ' fehlgeschlagen.' . PHP_EOL;
 foreach ($failed as $f) {

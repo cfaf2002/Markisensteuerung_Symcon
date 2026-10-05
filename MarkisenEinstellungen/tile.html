@@ -1,0 +1,268 @@
+<!--
+    Kachel für das Modul "Markisen-Einstellungen" (IP-Symcon HTML-SDK)
+    Copyright (c) 2026 Armin Frohwerk · MIT-Lizenz (siehe LICENSE)
+    SPDX-License-Identifier: MIT
+
+    Sicherheit: Alle Werte werden per textContent bzw. value gesetzt, nie als HTML.
+                Geprüft und begrenzt wird jeder Wert im Modul, nicht nur hier.
+    Leistung:   Keine externen Dateien; Plus/Minus wird gesammelt und erst nach einer kurzen Pause gesendet.
+-->
+<style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+
+    #tile {
+        --fg: var(--content-color, #eef3f7);
+        --accent: var(--accent-color, #e2a63b);
+        --muted: color-mix(in srgb, var(--fg) 62%, transparent);
+        --line: color-mix(in srgb, var(--fg) 14%, transparent);
+        --well: color-mix(in srgb, var(--fg) 7%, transparent);
+        --bad: #e5484d;
+
+        box-sizing: border-box;
+        width: 100%;
+        height: 100%;
+        /* Oben bleibt Platz für Titel und Symbole, die die Kachel-Visualisierung selbst zeichnet */
+        --hdr: clamp(40px, 11cqmin, 54px);
+        padding: var(--hdr) clamp(8px, 4cqmin, 16px) clamp(8px, 4cqmin, 16px);
+        overflow-y: auto;
+        container-type: size;
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        font-size: 13px;
+        line-height: 1.35;
+        -webkit-font-smoothing: antialiased;
+        -webkit-tap-highlight-color: transparent;
+        scrollbar-width: thin;
+    }
+    #tile.theme-dark  { --fg: #eef3f7; --accent: #e2a63b; background: linear-gradient(180deg, #1b2a38, #142029); border-radius: inherit; }
+    #tile.theme-light { --fg: #1d2b36; --accent: #c98a1c; background: linear-gradient(180deg, #f4f8fb, #e6eef4); border-radius: inherit; }
+
+    .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    @container (min-width: 620px) { .grid { grid-template-columns: 1fr 1fr; } }
+
+    h3 { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+    .rows { border-top: 1px solid var(--line); }
+    .row { display: flex; align-items: center; gap: 8px; min-height: 40px; border-bottom: 1px solid var(--line); }
+    .row .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .row.saving .val { opacity: .55; }
+
+    .step { display: flex; align-items: center; gap: 4px; flex: none; }
+    .step .val { min-width: 84px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .btn {
+        width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--well);
+        color: inherit; font: inherit; font-size: 17px; font-weight: 600; line-height: 1; cursor: pointer; padding: 0;
+    }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    button:disabled, input:disabled { opacity: .4; cursor: not-allowed; }
+    button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .switch { flex: none; width: 40px; height: 24px; border-radius: 12px; border: 0; background: var(--line); position: relative; cursor: pointer; padding: 0; }
+    .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--fg); transition: transform .2s; }
+    .switch[aria-checked="true"] { background: var(--accent); }
+    .switch[aria-checked="true"]::after { transform: translateX(16px); background: #fff; }
+
+    input[type="time"] {
+        flex: none; font: inherit; font-weight: 600; color: inherit; background: var(--well);
+        border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; color-scheme: dark light;
+    }
+
+    .days { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .day {
+        flex: 1 0 36px; min-height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--well);
+        color: var(--muted); font: inherit; font-weight: 600; cursor: pointer;
+    }
+    .day[aria-pressed="true"] { color: inherit; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+
+    .error { display: none; color: var(--bad); }
+    #tile.has-error .error { display: block; }
+    #tile.has-error .grid { display: none; }
+    .ro { display: none; margin-bottom: 8px; color: var(--muted); font-size: 12px; }
+    #tile.read-only .ro { display: block; }
+
+    @media (prefers-reduced-motion: reduce) { .switch::after { transition: none; } }
+</style>
+
+<div id="tile">
+    <div class="error" id="error"></div>
+    <div class="ro" data-t="Display only – changes are switched off in the instance">Display only – changes are switched off in the instance</div>
+    <div class="grid" id="grid"></div>
+</div>
+
+<script>
+    (function () {
+        'use strict';
+
+        var tile = document.getElementById('tile');
+        var grid = document.getElementById('grid');
+        var data = null;
+        var pending = {};      // Name → Timer: gesammelte Plus/Minus-Klicks
+        var DEBOUNCE = 700;
+
+        function t(s) {
+            return typeof window.translate === 'function' ? window.translate(s) : s;
+        }
+
+        function send(name, value) {
+            if (typeof window.requestAction === 'function') {
+                window.requestAction('Set', JSON.stringify({ name: name, value: value }));
+            }
+        }
+
+        function el(tag, cls, text) {
+            var e = document.createElement(tag);
+            if (cls) e.className = cls;
+            if (text !== undefined) e.textContent = text;
+            return e;
+        }
+
+        function decimals(step) {
+            var s = String(step);
+            return s.indexOf('.') < 0 ? 0 : s.length - s.indexOf('.') - 1;
+        }
+
+        function fmt(v, item) {
+            var d = decimals(item.step);
+            var txt = Number(v).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+            return item.unit ? txt + ' ' + item.unit : txt;
+        }
+
+        function numberRow(item, ro) {
+            var row = el('div', 'row');
+            row.appendChild(el('span', 'lbl', item.label));
+            var box = el('span', 'step');
+            var minus = el('button', 'btn', '−');
+            var plus = el('button', 'btn', '+');
+            var val = el('span', 'val', fmt(item.value, item));
+            minus.type = plus.type = 'button';
+            minus.setAttribute('aria-label', item.label + ' −');
+            plus.setAttribute('aria-label', item.label + ' +');
+            minus.disabled = plus.disabled = ro;
+
+            function change(dir) {
+                var d = decimals(item.step);
+                var v = Math.round((Number(item.value) + dir * item.step) * Math.pow(10, d)) / Math.pow(10, d);
+                v = Math.max(item.min, Math.min(item.max, v));
+                if (v === item.value) return;
+                item.value = v;
+                val.textContent = fmt(v, item);
+                row.classList.add('saving');
+                clearTimeout(pending[item.name]);
+                pending[item.name] = setTimeout(function () {
+                    delete pending[item.name];
+                    row.classList.remove('saving');
+                    send(item.name, v);
+                }, DEBOUNCE);
+            }
+            minus.addEventListener('click', function () { change(-1); });
+            plus.addEventListener('click', function () { change(1); });
+
+            box.appendChild(minus);
+            box.appendChild(val);
+            box.appendChild(plus);
+            row.appendChild(box);
+            return row;
+        }
+
+        function boolRow(item, ro) {
+            var row = el('div', 'row');
+            row.appendChild(el('span', 'lbl', item.label));
+            var sw = el('button', 'switch');
+            sw.type = 'button';
+            sw.setAttribute('role', 'switch');
+            sw.setAttribute('aria-checked', item.value ? 'true' : 'false');
+            sw.setAttribute('aria-label', item.label);
+            sw.disabled = ro;
+            sw.addEventListener('click', function () {
+                item.value = !item.value;
+                sw.setAttribute('aria-checked', item.value ? 'true' : 'false');
+                send(item.name, item.value);
+            });
+            row.appendChild(sw);
+            return row;
+        }
+
+        function timeRow(item, ro) {
+            var row = el('div', 'row');
+            row.appendChild(el('span', 'lbl', item.label));
+            var input = document.createElement('input');
+            input.type = 'time';
+            input.value = item.value;
+            input.disabled = ro;
+            input.setAttribute('aria-label', item.label);
+            input.addEventListener('change', function () {
+                if (/^\d{2}:\d{2}$/.test(input.value)) send(item.name, input.value);
+            });
+            row.appendChild(input);
+            return row;
+        }
+
+        function render(d) {
+            data = d;
+            var cls = [];
+            if (d.theme === 1) cls.push('theme-dark');
+            if (d.theme === 2) cls.push('theme-light');
+            if (d.error) cls.push('has-error');
+            if (d.readOnly) cls.push('read-only');
+            tile.className = cls.join(' ');
+            document.getElementById('error').textContent = d.error || '';
+
+            // Während Plus/Minus gesammelt wird, nicht neu zeichnen (sonst springt der Wert zurück)
+            if (Object.keys(pending).length > 0) return;
+
+            grid.textContent = '';
+            if (d.error) return;
+            var ro = !!d.readOnly;
+
+            (d.groups || []).forEach(function (g, i) {
+                var sec = el('section');
+                sec.appendChild(el('h3', '', g.title));
+                var rows = el('div', 'rows');
+                g.items.forEach(function (item) {
+                    if (item.type === 'bool') rows.appendChild(boolRow(item, ro));
+                    else if (item.type === 'time') rows.appendChild(timeRow(item, ro));
+                    else rows.appendChild(numberRow(item, ro));
+                });
+                // Wochentage gehören zu „Zeiten“
+                if (i === (d.groups.length - 1) && d.weekdays) {
+                    var title = el('div', 'row');
+                    title.appendChild(el('span', 'lbl', d.weekdaysTitle || ''));
+                    rows.insertBefore(title, rows.firstChild);
+                    var days = el('div', 'days');
+                    d.weekdays.forEach(function (w) {
+                        var b = el('button', 'day', w.label);
+                        b.type = 'button';
+                        b.setAttribute('aria-pressed', w.value ? 'true' : 'false');
+                        b.disabled = ro;
+                        b.addEventListener('click', function () {
+                            w.value = !w.value;
+                            b.setAttribute('aria-pressed', w.value ? 'true' : 'false');
+                            send(w.name, w.value);
+                        });
+                        days.appendChild(b);
+                    });
+                    rows.insertBefore(days, title.nextSibling);
+                }
+                sec.appendChild(rows);
+                grid.appendChild(sec);
+            });
+        }
+
+        Array.prototype.forEach.call(document.querySelectorAll('[data-t]'), function (e) {
+            e.textContent = t(e.getAttribute('data-t'));
+        });
+
+        // Wird von IP-Symcon bei UpdateVisualizationValue() aufgerufen
+        window.handleMessage = function (msg) {
+            try {
+                render(typeof msg === 'string' ? JSON.parse(msg) : msg);
+            } catch (e) {
+                console.error('Markisen-Einstellungen:', e);
+            }
+        };
+
+        var initial = /*INITIAL_DATA*/null;
+        if (initial) {
+            window.handleMessage(initial);
+        }
+    })();
+</script>

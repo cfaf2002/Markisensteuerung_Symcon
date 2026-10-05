@@ -19,6 +19,7 @@ require_once __DIR__ . '/../libs/MarkiseNotifyTrait.php';
 require_once __DIR__ . '/../libs/MarkiseSimulationTrait.php';
 require_once __DIR__ . '/../libs/MarkiseExtrasTrait.php';
 require_once __DIR__ . '/../libs/MarkiseImportTrait.php';
+require_once __DIR__ . '/../libs/MarkiseParameterTrait.php';
 
 class Markisensteuerung extends IPSModuleStrict
 {
@@ -29,6 +30,7 @@ class Markisensteuerung extends IPSModuleStrict
     use MarkiseSimulationTrait;
     use MarkiseExtrasTrait;
     use MarkiseImportTrait;
+    use MarkiseParameterTrait;
 
     // Werte der Variable "Status"
     public const ST_OFF = 0;
