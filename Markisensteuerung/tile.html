@@ -14,7 +14,7 @@
         --fg: var(--content-color, #eef3f7);
         --accent: var(--accent-color, #e2a63b);
         --canvas-a: var(--accent);
-        --canvas-b: color-mix(in srgb, var(--accent) 18%, #f6efe0);
+        --canvas-b: #fbf6ea;
         --muted: color-mix(in srgb, var(--fg) 62%, transparent);
         --line: color-mix(in srgb, var(--fg) 14%, transparent);
         --well: color-mix(in srgb, var(--fg) 7%, transparent);
@@ -176,7 +176,11 @@
         opacity: min(1, calc(var(--e) * 6));
         transition: transform var(--travel) linear, opacity var(--travel) linear;
     }
-    .arm { stroke: #8b96a3; stroke-width: 2.2; stroke-linecap: round; }
+    .arm { fill: none; stroke: #5d6976; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
+    .joint { fill: #5d6976; }
+    .cloth { stroke: rgba(20, 30, 40, .55); stroke-width: .9; stroke-linejoin: round; }
+    .cloth-under { fill: rgba(20, 30, 40, .35); }
+    .cloth-shine { fill: rgba(255, 255, 255, .28); }
     .cassette { fill: #e8ecef; stroke: rgba(0, 0, 0, .15); stroke-width: .6; }
     .shade { fill: rgba(20, 30, 40, .28); transform-box: view-box; transform-origin: 92px 120px; transform: scaleX(calc(var(--e))); transition: transform var(--travel) linear; }
     #tile.wx-night .shade, #tile.wx-cloud .shade, #tile.wx-rain .shade, #tile.wx-storm .shade, #tile.wx-wind .shade, #tile.wx-frost .shade { opacity: .25; }
@@ -312,12 +316,12 @@
             </defs>
 
             <!-- Himmel -->
-            <rect class="sky sky-day" width="800" height="140" fill="url(#skyDay)"></rect>
-            <rect class="sky sky-eve" width="800" height="140" fill="url(#skyEve)"></rect>
-            <rect class="sky sky-grey" width="800" height="140" fill="url(#skyGrey)"></rect>
-            <rect class="sky sky-night" width="800" height="140" fill="url(#skyNight)"></rect>
-            <rect class="sky sky-storm" width="800" height="140" fill="url(#skyStorm)"></rect>
-            <rect class="sky sky-cold" width="800" height="140" fill="url(#skyCold)"></rect>
+            <rect class="sky sky-day" width="1400" height="140" fill="url(#skyDay)"></rect>
+            <rect class="sky sky-eve" width="1400" height="140" fill="url(#skyEve)"></rect>
+            <rect class="sky sky-grey" width="1400" height="140" fill="url(#skyGrey)"></rect>
+            <rect class="sky sky-night" width="1400" height="140" fill="url(#skyNight)"></rect>
+            <rect class="sky sky-storm" width="1400" height="140" fill="url(#skyStorm)"></rect>
+            <rect class="sky sky-cold" width="1400" height="140" fill="url(#skyCold)"></rect>
 
             <g class="wx stars">
                 <circle cx="130" cy="14" r=".9"></circle><circle cx="170" cy="30" r=".7"></circle><circle cx="205" cy="10" r="1"></circle>
@@ -358,7 +362,7 @@
             </g>
 
             <!-- Boden -->
-            <rect class="grass" x="0" y="116" width="800" height="24"></rect>
+            <rect class="grass" x="0" y="116" width="1400" height="24"></rect>
             <path class="terrace" d="M90 118 H330 L340 128 H90 Z"></path>
             <path class="terrace-line" d="M130 118 l3 10 M170 118 l3 10 M210 118 l3 10 M250 118 l3 10 M290 118 l3 10"></path>
             <path class="shade" d="M92 118 H300 L314 128 H92 Z"></path>
@@ -388,16 +392,32 @@
             <path class="plant" d="M353 106 c-10 -6 -12 -18 -4 -24 c2 8 4 14 4 24 c0 -12 4 -22 12 -26 c4 8 -2 20 -12 26 z"></path>
             <circle class="flower" cx="349" cy="84" r="2.4"></circle><circle class="flower" cx="363" cy="82" r="2.2"></circle></g>
 
+            <!-- Mehr Garten für breite Kacheln -->
+            <g class="garden-far">
+                <path d="M410 104 v14 M424 104 v14 M438 104 v14 M452 104 v14 M466 104 v14 M480 104 v14 M494 104 v14 M508 104 v14 M522 104 v14 M536 104 v14 M550 104 v14 M564 104 v14 M578 104 v14 M592 104 v14 M606 104 v14" stroke="#e8e2d6" stroke-width="5" stroke-linecap="round"></path>
+                <path d="M404 108 H612 M404 114 H612" stroke="#e8e2d6" stroke-width="2.4"></path>
+                <rect x="650" y="84" width="7" height="34" rx="2" fill="#7a5638"></rect>
+                <circle cx="653" cy="70" r="24" fill="#4f9a45"></circle><circle cx="636" cy="80" r="15" fill="#5aab4e"></circle><circle cx="671" cy="80" r="16" fill="#468c3d"></circle>
+                <circle cx="700" cy="114" r="9" fill="#5aab4e"></circle><circle cx="714" cy="112" r="11" fill="#4f9a45"></circle><circle cx="730" cy="115" r="8" fill="#5aab4e"></circle>
+                <circle cx="760" cy="106" r="2.2" fill="#f28fb1"></circle><circle cx="770" cy="109" r="2" fill="#ffd166"></circle><circle cx="781" cy="105" r="2.2" fill="#f28fb1"></circle>
+                <path d="M760 106 v12 M770 109 v9 M781 105 v13" stroke="#4f9a45" stroke-width="1.4"></path>
+            </g>
+
             <!-- Markise: wird von der Wand aus aufgezogen -->
-            <rect class="cassette" x="88" y="38" width="10" height="9" rx="2.5"></rect>
+            <rect class="cassette" x="86" y="35" width="13" height="12" rx="3"></rect>
             <g class="canvas-g">
-                <line class="arm" x1="92" y1="80" x2="296" y2="66"></line>
-                <path d="M92 42 L300 62 L300 68 L92 48 Z" fill="url(#stripes)"></path>
-                <path d="M300 62 v10 q-4 4.5 -8 0 q-4 4.5 -8 0 q-4 4.5 -8 0 q-4 4.5 -8 0 q-4 4.5 -8 0 v-12.6 z" fill="url(#stripes)" opacity=".95"></path>
+                <!-- Gelenkarme -->
+                <path class="arm" d="M92 84 L196 70 L296 70"></path>
+                <circle class="joint" cx="196" cy="70" r="2.2"></circle>
+                <!-- Tuch: kräftig, mit Kontur und dunkler Unterseite, damit es vor hellem Himmel gut sichtbar ist -->
+                <path class="cloth-under" d="M92 50 L300 72 L300 76 L92 54 Z"></path>
+                <path class="cloth" d="M92 40 L300 60 L300 72 L92 50 Z" fill="url(#stripes)"></path>
+                <path class="cloth-shine" d="M92 40 L300 60 L300 63 L92 43 Z"></path>
+                <path class="cloth" d="M300 60 v16 q-4.2 5 -8.4 0 q-4.2 5 -8.4 0 q-4.2 5 -8.4 0 q-4.2 5 -8.4 0 q-4.2 5 -8.4 0 v-18 z" fill="url(#stripes)"></path>
             </g>
 
             <!-- Abdunkeln bei Nacht und Unwetter, leuchtendes Fenster -->
-            <rect class="dimmer" width="800" height="140"></rect>
+            <rect class="dimmer" width="1400" height="140"></rect>
             <rect class="window-glow" x="17" y="31" width="13" height="24"></rect>
             <rect class="window-glow" x="32" y="31" width="13" height="24"></rect>
 
@@ -654,9 +674,9 @@
             if (!r.width || !r.height) return;
             // Sichtbare Breite in Szenen-Einheiten: die volle Höhe bleibt immer sichtbar (Sonne wird nicht abgeschnitten).
             // Schmal: mindestens Haus bis Markisenende (295); breit/flach (z. B. Handy quer): Himmel und Wiese gehen bis 800 weiter.
-            var w = Math.max(295, Math.min(800, 140 * r.width / r.height));
+            var w = Math.max(295, Math.min(1400, 140 * r.width / r.height));
             scene.setAttribute('viewBox', '0 0 ' + Math.round(w) + ' 140');
-            scene.setAttribute('preserveAspectRatio', w >= 800 ? 'xMinYMax slice' : 'xMinYMax meet');
+            scene.setAttribute('preserveAspectRatio', w >= 1400 ? 'xMinYMax slice' : 'xMinYMax meet');
             scene.style.setProperty('--sw', Math.round(w + 60) + 'px');
         }
         if (window.ResizeObserver) {

@@ -446,6 +446,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.4 | 20 | 05.10.2026 | Markise in der Kachel deutlich sichtbarer: kräftiges Tuch mit Kontur, Glanz und Unterseite, kontrastreiche Streifen, Gelenkarme mit Gelenk, größere Kassette; breite Kacheln zeigen zusätzlich Zaun, Baum, Büsche und Blumen; die Szene wird auch bei sehr flachen Kacheln nicht mehr abgeschnitten |
 | 1.4 | 19 | 05.10.2026 | Fehler behoben: Mit „Animationen reduzieren“ sprang das Markisentuch sofort auf ganz aus/ganz ein, während der Schatten in der Fahrzeit lief. Aus- und Einfahren laufen jetzt immer gemeinsam in der Fahrzeit; reduziert wird nur die Deko |
 | 1.4 | 18 | 05.10.2026 | Markise fährt in der Kachel gleichmäßig genau in der eingestellten Fahrzeit; wird die Kachel während einer Fahrt geöffnet, geht die Animation an der richtigen Stelle weiter |
 | 1.4 | 17 | 05.10.2026 | Kachel-Szene zeigt immer die volle Höhe (Sonne und Hausdach werden bei flachen Kacheln nicht mehr abgeschnitten), Himmel und Wiese reichen bis zum Rand; auf dem Handy passen alle vier Tasten (Stopp und Halten als Symbol); Einstellungs-Kachel mit kompakten Pillen und umbrechenden Beschriftungen |
