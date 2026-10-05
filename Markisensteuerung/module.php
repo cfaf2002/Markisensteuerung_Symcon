@@ -16,6 +16,7 @@ require_once __DIR__ . '/../libs/MarkiseSunTrait.php';
 require_once __DIR__ . '/../libs/MarkiseActuatorTrait.php';
 require_once __DIR__ . '/../libs/MarkiseTileTrait.php';
 require_once __DIR__ . '/../libs/MarkiseNotifyTrait.php';
+require_once __DIR__ . '/../libs/MarkiseSimulationTrait.php';
 
 class Markisensteuerung extends IPSModuleStrict
 {
@@ -23,6 +24,7 @@ class Markisensteuerung extends IPSModuleStrict
     use MarkiseActuatorTrait;
     use MarkiseTileTrait;
     use MarkiseNotifyTrait;
+    use MarkiseSimulationTrait;
 
     // Werte der Variable "Status"
     public const ST_OFF = 0;
@@ -147,6 +149,11 @@ class Markisensteuerung extends IPSModuleStrict
         $this->RegisterPropertyBoolean('NotifyMove', false);
         $this->RegisterPropertyInteger('NotifyTarget', 0);
 
+        // Simulation (Testbetrieb)
+        $this->RegisterPropertyBoolean('SimulationMode', false);
+        $this->RegisterPropertyBoolean('SimSkipDelays', false);
+        $this->RegisterPropertyBoolean('SimRealSafety', true);
+
         // Anzeige
         $this->RegisterPropertyBoolean('ShowSettings', false);
         $this->RegisterPropertyBoolean('ShowSunPosition', false);
@@ -170,6 +177,9 @@ class Markisensteuerung extends IPSModuleStrict
         $this->RegisterAttributeString('TileData', '{}');
         $this->RegisterAttributeString('Watched', '[]');
         $this->RegisterAttributeBoolean('Initialized', false);
+        $this->RegisterAttributeBoolean('SimActive', false);
+        $this->RegisterAttributeBoolean('RealSafetySent', false);
+        $this->RegisterAttributeString('SimLog', '[]');
 
         $this->RegisterTimer('Tick', 0, 'IPS_RequestAction($_IPS[\'TARGET\'], \'Tick\', 0);');
         $this->RegisterTimer('Travel', 0, 'IPS_RequestAction($_IPS[\'TARGET\'], \'TravelDone\', 0);');
@@ -188,7 +198,15 @@ class Markisensteuerung extends IPSModuleStrict
 
         $this->SetVisualizationType($this->ReadPropertyBoolean('UseTile') ? 1 : 0);
         $this->MaintainVariables();
+        $this->MaintainSimVariables();
         $this->WatchVariables();
+
+        // Simulation ein- oder ausgeschaltet: Laufzeitdaten zurücksetzen
+        $sim = $this->Simulating();
+        if ($sim !== $this->ReadAttributeBoolean('SimActive')) {
+            $this->WriteAttributeBoolean('SimActive', $sim);
+            $this->ResetRuntime($sim);
+        }
 
         $status = $this->ReadPropertyBoolean('Active') ? $this->CheckConfiguration() : 104;
         $this->SetStatus($status);
@@ -218,7 +236,8 @@ class Markisensteuerung extends IPSModuleStrict
 
         $watch = $this->ActuatorWatchList();
         if (isset($watch[$SenderID])) {
-            if (!$this->ReadPropertyBoolean('ManualDetect')) {
+            // In der Simulation ist der Zustand nur gedacht – echte Aktorvariablen zählen nicht als Handbetrieb
+            if (!$this->ReadPropertyBoolean('ManualDetect') || $this->Simulating()) {
                 return;
             }
             $command = $this->DetectManual($watch[$SenderID], $Data);
@@ -295,9 +314,33 @@ class Markisensteuerung extends IPSModuleStrict
                 $this->FinishTravel();
                 return;
 
+            case 'SimLux':
+            case 'SimTemp':
+            case 'SimWind':
+            case 'SimGust':
+            case 'SimRain':
+            case 'SimPresence':
+            case 'SimTime':
+                $this->SetSimValue($Ident, $Value);
+                return;
+
+            case 'SimFromReal':
+                if (!$this->Simulating()) {
+                    throw new InvalidArgumentException('Nur in der Simulation möglich.');
+                }
+                $this->SimFromReal();
+                $this->EvaluateNow('simulation from real');
+                return;
+
+            case 'SimClear':
+                $this->SimClearLocks();
+                return;
+
             case 'RepeatRetract':
                 $this->SetTimerInterval('Repeat', 0);
-                if ($this->ReadAttributeString('SafetyReason') !== '' && $this->ReadAttributeString('LastCommand') === 'retract') {
+                $realInSim = $this->Simulating() && $this->ReadAttributeBoolean('RealSafetySent');
+                $realNormal = !$this->Simulating() && $this->ReadAttributeString('SafetyReason') !== '' && $this->ReadAttributeString('LastCommand') === 'retract';
+                if ($realInSim || $realNormal) {
                     $this->SendDebug('Sicherheit', 'Einfahrbefehl wird wiederholt', 0);
                     $this->SendCommand('retract');
                 }
@@ -409,23 +452,31 @@ class Markisensteuerung extends IPSModuleStrict
 
         $previousSafety = $this->ReadAttributeString('SafetyReason');
         $this->WriteAttributeString('SafetyReason', $result['safety']);
+        $sim = $this->Simulating();
 
         if ($result['action'] !== 'none') {
             $this->ExecuteCommand($result['action'], false);
-            if ($result['action'] === 'retract' && $result['safety'] !== '' && $this->ReadPropertyBoolean('RepeatRetract')) {
+            if (!$sim && $result['action'] === 'retract' && $result['safety'] !== '' && $this->ReadPropertyBoolean('RepeatRetract')) {
                 // Funkmotoren ohne Rückmeldung (z. B. Somfy RTS): Befehl nach der Fahrzeit sicherheitshalber wiederholen
                 $this->SetTimerInterval('Repeat', max(10, $this->ReadPropertyInteger('TravelTime')) * 1000);
             }
-            if ($this->ReadPropertyBoolean('NotifyMove') && $result['safety'] === '') {
+            if (!$sim && $this->ReadPropertyBoolean('NotifyMove') && $result['safety'] === '') {
                 $this->Notify($this->Translate('Awning'), $result['reason']);
             }
         }
-        if ($result['safety'] !== '' && $previousSafety === '' && $this->ReadPropertyBoolean('NotifySafety')) {
+        if (!$sim && $result['safety'] !== '' && $previousSafety === '' && $this->ReadPropertyBoolean('NotifySafety')) {
             $this->Notify($this->Translate('Awning – safety'), $result['reason']);
+        }
+        if ($sim) {
+            // Protokoll: jede gedachte Fahrt und jeder Statuswechsel
+            if ($result['action'] !== 'none' || $result['status'] !== $this->GetValue('Status')) {
+                $this->SimLog($result['reason']);
+            }
+            $this->RealSafety();
         }
 
         $this->SetValueIfChanged('Status', $result['status']);
-        $this->SetValueIfChanged('Reason', $result['reason']);
+        $this->SetValueIfChanged('Reason', ($sim ? $this->Translate('Simulation') . ': ' : '') . $result['reason']);
         $this->SetValueIfChanged('Safety', $result['safety'] !== '');
         if ($this->ReadPropertyBoolean('ShowSunPosition') && $ctx['sun'] !== null) {
             $this->SetValueIfChanged('SunAzimuth', $ctx['sun']['azimuth']);
@@ -441,7 +492,10 @@ class Markisensteuerung extends IPSModuleStrict
      */
     protected function Context(int $now): array
     {
-        $sun = $this->SunNow($now);
+        $sim = $this->Simulating();
+        // Uhr für Himmel, Zeitfenster und Wochentag (in der Simulation vorgebbar); Verzögerungen laufen mit der echten Uhr
+        $sky = $this->SkyTime($now);
+        $sun = $this->SunNow($sky);
 
         $lux = $this->ReadSensor('BrightnessVariableID');
         $windID = $this->ReadPropertyInteger('WindVariableID');
@@ -455,6 +509,9 @@ class Markisensteuerung extends IPSModuleStrict
         $present = true;
         if ($presenceID > 0 && IPS_VariableExists($presenceID)) {
             $present = (bool) GetValue($presenceID);
+        }
+        if ($sim && $presenceID > 0 && ($simPresent = $this->SimSensor('PresenceVariableID')) !== null) {
+            $present = $simPresent > 0;
         }
         $absentSince = $this->ReadAttributeInteger('AbsentSince');
         if ($present) {
@@ -472,16 +529,17 @@ class Markisensteuerung extends IPSModuleStrict
             'lastCommand' => $this->ReadAttributeString('LastCommand'),
             'manualUntil' => $this->ReadAttributeInteger('ManualUntil'),
             'lux'         => $lux,
-            'luxFrozen'   => $this->BrightnessFrozen($lux, $now, $isDay),
+            'luxFrozen'   => !$sim && $this->BrightnessFrozen($lux, $now, $isDay),
             'temp'        => $this->ReadSensor('TemperatureVariableID'),
             'wind'        => $this->ReadSensor('WindVariableID'),
             'gust'        => $this->ReadSensor('GustVariableID'),
             'rain'        => $this->ReadSensor('RainVariableID'),
-            'windStale'   => $this->SensorsStale([$windID, $gustID], $now),
+            'windStale'   => !$sim && $this->SensorsStale([$windID, $gustID], $now),
+            'simulation'  => $sim,
             'sun'         => $sun,
             'isDay'       => $isDay,
-            'weekday'     => (int) date('N', $now),
-            'inTime'      => $this->InTimeWindow($now),
+            'weekday'     => (int) date('N', $sky),
+            'inTime'      => $this->InTimeWindow($sky),
             'present'     => $present,
             'hasPresence' => $presenceID > 0,
             'graceLeft'   => $graceLeft,
@@ -544,10 +602,10 @@ class Markisensteuerung extends IPSModuleStrict
         }
 
         if ($safety === 'wind' || $safety === 'gust') {
-            $windLock = $now + max(0, $this->ReadPropertyInteger('WindLockMinutes')) * 60;
+            $windLock = $now + $this->Minutes('WindLockMinutes') * 60;
             $attr['WindLockUntil'] = $windLock;
         } elseif ($safety === 'rain') {
-            $rainLock = $now + max(0, $this->ReadPropertyInteger('RainLockMinutes')) * 60;
+            $rainLock = $now + $this->Minutes('RainLockMinutes') * 60;
             $attr['RainLockUntil'] = $rainLock;
         }
 
@@ -622,7 +680,7 @@ class Markisensteuerung extends IPSModuleStrict
             if ($brightOn && $warmOn && $windOk && $sunHits) {
                 $since = $this->ReadAttributeInteger('OnSince') ?: $now;
                 $attr['OnSince'] = $since;
-                $wait = $this->ReadPropertyInteger('DelayOn') * 60 - ($now - $since);
+                $wait = $this->Minutes('DelayOn') * 60 - ($now - $since);
                 if ($wait <= 0) {
                     $action = 'extend';
                     $status = self::ST_SUN;
@@ -646,7 +704,7 @@ class Markisensteuerung extends IPSModuleStrict
             } elseif ($brightLow || $coldOff || !$sunHits) {
                 $since = $this->ReadAttributeInteger('OffSince') ?: $now;
                 $attr['OffSince'] = $since;
-                $wait = $this->ReadPropertyInteger('DelayOff') * 60 - ($now - $since);
+                $wait = $this->Minutes('DelayOff') * 60 - ($now - $since);
                 if ($wait <= 0) {
                     $action = 'retract';
                     $status = self::ST_WAITING;
@@ -763,8 +821,12 @@ class Markisensteuerung extends IPSModuleStrict
         if ($pause > 0) {
             $this->WriteManualUntil($this->Now() + $pause * 60);
         }
-        $this->WriteAttributeInteger('OwnCommandUntil', $this->Now() + max(10, $this->ReadPropertyInteger('TravelTime') + 10));
-        @RequestAction($id, $this->PercentToActuator($id, $percent));
+        if ($this->Simulating()) {
+            $this->SimLog(sprintf($this->Translate('Would send: position %d %%'), $percent) . ' (' . $this->Translate('manual') . ')');
+        } else {
+            $this->WriteAttributeInteger('OwnCommandUntil', $this->Now() + max(10, $this->ReadPropertyInteger('TravelTime') + 10));
+            @RequestAction($id, $this->PercentToActuator($id, $percent));
+        }
         $this->SetValue('Position', $percent);
         $this->RecordCommand(abs($percent - $retracted) <= 1 ? 'retract' : 'extend', true);
         $this->EvaluateNow('manual position');
@@ -775,6 +837,11 @@ class Markisensteuerung extends IPSModuleStrict
      */
     private function ExecuteCommand(string $command, bool $manual): bool
     {
+        if ($this->Simulating()) {
+            // Simulation: nichts senden, nur den gedachten Zustand führen
+            $this->SimLog(sprintf($this->Translate('Would send: %s'), $this->CommandName($command)) . ($manual ? ' (' . $this->Translate('manual') . ')' : ''));
+            return $this->RecordCommand($command, $manual);
+        }
         $ok = $this->SendCommand($command);
         if ($ok) {
             $this->RecordCommand($command, $manual);
@@ -807,6 +874,15 @@ class Markisensteuerung extends IPSModuleStrict
         return true;
     }
 
+    private function CommandName(string $command): string
+    {
+        return match ($command) {
+            'extend'  => $this->Translate('Extend'),
+            'retract' => $this->Translate('Retract'),
+            default   => $this->Translate('Stop'),
+        };
+    }
+
     private function FinishTravel(): void
     {
         $last = $this->ReadAttributeString('LastCommand');
@@ -833,8 +909,14 @@ class Markisensteuerung extends IPSModuleStrict
     /**
      * Wert eines Sensors als Zahl; null, wenn nicht eingestellt oder nicht vorhanden.
      */
-    protected function ReadSensor(string $property): ?float
+    protected function ReadSensor(string $property, bool $real = false): ?float
     {
+        if (!$real && $this->Simulating()) {
+            $simulated = $this->SimSensor($property);
+            if ($simulated !== null) {
+                return $simulated;
+            }
+        }
         $id = $this->ReadPropertyInteger($property);
         if ($id <= 0 || !IPS_VariableExists($id)) {
             return null;

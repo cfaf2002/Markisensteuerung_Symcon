@@ -2,7 +2,7 @@
 
 [![IP-Symcon ab 8.2](https://img.shields.io/badge/IP--Symcon-ab_8.2-0b6fb3.svg)](https://www.symcon.de)
 [![Optimiert für Symcon 9.0](https://img.shields.io/badge/optimiert_f%C3%BCr-Symcon_9.0-0b6fb3.svg)](https://www.symcon.de/de/service/dokumentation/installation/migrationen/v81-v90-q1-2026/)
-![Modul-Version 1.0](https://img.shields.io/badge/Modul--Version-1.0-informational.svg)
+![Modul-Version 1.1](https://img.shields.io/badge/Modul--Version-1.1-informational.svg)
 [![Tests](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml/badge.svg)](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml)
 ![Sprachen: Deutsch, Englisch](https://img.shields.io/badge/Sprachen-Deutsch_%7C_Englisch-blueviolet.svg)
 ![PHP 8.5](https://img.shields.io/badge/PHP-8.5-777bb4.svg?logo=php&logoColor=white)
@@ -10,6 +10,7 @@
 [![Darstellungen statt Profile](https://img.shields.io/badge/Variablen-Darstellungen-success.svg)](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/darstellungen/)
 [![Kachel-Visualisierung: HTML-SDK](https://img.shields.io/badge/Kachel--Visualisierung-HTML--SDK-orange.svg)](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/html-sdk/)
 ![Sicherheit zuerst](https://img.shields.io/badge/Sicherheit-Wind_%7C_Regen_%7C_Frost_%7C_Sensorausfall-red.svg)
+![Simulation](https://img.shields.io/badge/Simulation-Testbetrieb_ohne_Fahrt-yellow.svg)
 ![Ohne Cloud](https://img.shields.io/badge/Cloud-nicht_n%C3%B6tig-brightgreen.svg)
 [![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-green.svg)](LICENSE)
 
@@ -27,11 +28,12 @@ Autor: Armin Frohwerk · Lizenz: MIT
 6. [Kachel](#6-kachel)
 7. [Variablen und Darstellungen](#7-variablen-und-darstellungen)
 8. [PHP-Befehle](#8-php-befehle)
-9. [Umstieg vom bisherigen Skript](#9-umstieg-vom-bisherigen-skript)
-10. [Sicherheit und Geschwindigkeit](#10-sicherheit-und-geschwindigkeit)
-11. [Entwicklung und Tests](#11-entwicklung-und-tests)
-12. [Changelog](#12-changelog)
-13. [Lizenz](#13-lizenz)
+9. [Simulation (Testbetrieb)](#9-simulation-testbetrieb)
+10. [Umstieg vom bisherigen Skript](#10-umstieg-vom-bisherigen-skript)
+11. [Sicherheit und Geschwindigkeit](#11-sicherheit-und-geschwindigkeit)
+12. [Entwicklung und Tests](#12-entwicklung-und-tests)
+13. [Changelog](#13-changelog)
+14. [Lizenz](#14-lizenz)
 
 ## 1. Funktionsumfang
 
@@ -50,6 +52,7 @@ Autor: Armin Frohwerk · Lizenz: MIT
 - **Begründung in Worten** für jede Entscheidung, z. B. „Windalarm (7 Bft) → Markise eingefahren“
 - **Push-Nachricht** bei Sicherheitsalarm (einmal pro Alarm) und optional bei jeder automatischen Fahrt
 - **Grenzwerte und Wochentage in der Visualisierung einstellbar**, auf Wunsch
+- **Simulation (Testbetrieb):** Das Modul entscheidet wie gewohnt, bewegt die Markise aber nicht. Sensorwerte und Uhrzeit lassen sich vorgeben, jede Entscheidung landet im Protokoll. Der echte Wind- und Regenschutz bleibt dabei auf Wunsch aktiv
 - **Eigene Kachel** im Symcon-Design mit gezeichneter Markise, Wetter, Begründung, Countdown, Sensorliste und Tasten
 - Deutsch und Englisch nach Symcon-Konvention: englische Texte im Modul, deutsche Übersetzung in `locale.json`
 - Automatische Tests mit GitHub-Workflow
@@ -224,7 +227,47 @@ MARKISE_RestartGrace(int $InstanzID): void  // Abwesenheits-Karenz neu starten
 MARKISE_EndGrace(int $InstanzID): void      // Abwesenheits-Karenz sofort beenden
 ```
 
-## 9. Umstieg vom bisherigen Skript
+## 9. Simulation (Testbetrieb)
+
+Zum Ausprobieren der Grenzwerte, ohne dass die Markise ständig fährt. Einschalten unter **Simulation (Testbetrieb)** in der Instanz.
+
+**Was passiert:**
+
+- Das Modul entscheidet genau wie im echten Betrieb, schickt aber keine Befehle an die Markise. „Zustand“, „Markise“ und die Kachel zeigen die gedachte Fahrt.
+- Die Kachel trägt ein gelbes Band „Simulation – die Markise wird nicht bewegt“, die „Letzte Entscheidung“ beginnt mit „Simulation:“.
+- Für jeden eingestellten Sensor gibt es eine Simulationsvariable, gestartet mit dem aktuellen echten Wert. Die Entscheidung nutzt dann nur noch diese Werte.
+- Auch Tasten in Kachel und Visualisierung, `MARKISE_Extend` und Co. fahren nur gedacht. Die Handbetrieb-Pause läuft wie echt.
+- Push-Nachrichten für gedachte Fahrten und gedachte Alarme gehen nicht raus.
+- Die Erkennung „Bedienung von außen“ ruht, weil der Zustand nur gedacht ist.
+
+**Simulationsvariablen:**
+
+| Ident | Name | Darstellung |
+|---|---|---|
+| SimLux | Simulation – Helligkeit | Schieberegler 0–120.000 lx |
+| SimTemp | Simulation – Temperatur | Schieberegler −10 bis 40 °C |
+| SimWind | Simulation – Wind | Schieberegler in der Einheit des Windsensors |
+| SimGust | Simulation – Böen | Schieberegler in der Einheit des Böensensors |
+| SimRain | Simulation – Regen | Schalter |
+| SimPresence | Simulation – jemand zu Hause | Schalter |
+| SimTime | Simulation – Uhrzeit (HH:MM, leer = jetzt) | Werteingabe, z. B. `21:30` für den Abend oder `17:00` für die Sonnenrichtung |
+| SimLog | Simulation – Protokoll | die letzten 15 Entscheidungen, neueste oben, z. B. „08:49:11 Würde senden: Ausfahren“ |
+
+Die vorgegebene Uhrzeit gilt für Sonnenstand, Tag/Nacht, Zeitfenster und Wochentag. Verzögerungen, Sperren und Karenz laufen mit der echten Uhr.
+
+**Einstellungen:**
+
+| Einstellung | Standard | Beschreibung |
+|---|---|---|
+| Simulation an | aus | |
+| Verzögerungen und Sperren überspringen | aus | Ausfahr-/Einfahrverzögerung, Wind- und Regensperre sind dann 0 – das Modul reagiert sofort auf jede Änderung |
+| Echter Wind- und Regenschutz bleibt aktiv | an | Die echten Wind-, Böen- und Regensensoren werden weiter überwacht. Bei echtem Alarm fährt die echte Markise wirklich ein (ein Befehl pro Alarm, auf Wunsch wiederholt, mit Push-Nachricht) und das Protokoll vermerkt es |
+| Echte Sensorwerte übernehmen | – | Setzt alle Simulationsvariablen auf die aktuellen echten Werte und die Uhrzeit auf „jetzt“ |
+| Sperren, Pause und Verzögerungen zurücksetzen | – | Für den nächsten Versuch ohne Warten |
+
+**Beim Ein- und Ausschalten** werden alle Laufzeitdaten zurückgesetzt (gedachter Zustand, Sperren, Pause, Verzögerungen, Karenz). So rutscht nichts Simuliertes in den echten Betrieb. Nach dem Ausschalten ist der Zustand unbekannt: Der erste Durchlauf schickt den Befehl, der zu den echten Werten passt. Die Simulationsvariablen werden entfernt.
+
+## 10. Umstieg vom bisherigen Skript
 
 Das Modul übernimmt die Logik des bisherigen Markisen-Skripts samt Debug-Kachel. So werden die alten Variablen zugeordnet:
 
@@ -255,7 +298,7 @@ Was sich gegenüber dem Skript verbessert:
 
 Nach dem Umstieg das alte Skript und seine Ereignisse deaktivieren, damit nicht zwei Steuerungen gleichzeitig arbeiten.
 
-## 10. Sicherheit und Geschwindigkeit
+## 11. Sicherheit und Geschwindigkeit
 
 **Sicherheit der Markise**
 
@@ -280,7 +323,7 @@ Nach dem Umstieg das alte Skript und seine Ereignisse deaktivieren, damit nicht 
 - Variablen werden nur geschrieben, wenn sich ihr Wert ändert. Die Kachel bekommt nur dann Daten, wenn sich etwas Sichtbares geändert hat; die Helligkeit wird dafür auf 100 lx gerundet.
 - Die Kachel lädt keine externen Dateien, zeichnet mit SVG und CSS und hält Animationen und Countdown an, solange sie nicht zu sehen ist.
 
-## 11. Entwicklung und Tests
+## 12. Entwicklung und Tests
 
 | Pfad | Inhalt |
 |---|---|
@@ -289,6 +332,7 @@ Nach dem Umstieg das alte Skript und seine Ereignisse deaktivieren, damit nicht 
 | `libs/MarkiseActuatorTrait.php` | Ansteuerung und Erkennung von Handbetrieb |
 | `libs/MarkiseTileTrait.php` | Kacheldaten |
 | `libs/MarkiseNotifyTrait.php` | Push-Nachrichten |
+| `libs/MarkiseSimulationTrait.php` | Simulation (Testbetrieb) |
 | `*/locale.json` | deutsche Übersetzung (Symcon-Format, Schlüssel `de`) |
 | `tests/` | Testumgebung ohne Symcon und Testsuite |
 
@@ -297,22 +341,23 @@ php tests/run.php
 php tests/stubs.php <Pfad zu SymconStubs>
 ```
 
-Die Testsuite bildet die Symcon-Basisklasse nach, simuliert Sensoren, Aktoren und eine Uhr und prüft unter anderem Ausfahren ohne Befehlsflut, Verzögerung und Hysterese, Wind-, Böen-, Regen- und Frostschutz mit Sperren, Sensorausfall, eingefrorene Helligkeit (nur tagsüber), Handbetrieb und Erkennung der Fernbedienung, Wochentage, Nacht, Zeitfenster über Mitternacht, Anwesenheit mit Karenz, Sonnenrichtung und Sonnenstand, alle drei Arten der Ansteuerung, Wiederholung fehlgeschlagener Befehle, Benachrichtigungen, Einstellungen aus der Visualisierung, abgelehnte Aktionen, die Kachel (inklusive Schutz vor eingeschleustem HTML und sparsamer Updates), das Formular und die Vollständigkeit der Übersetzung. Mit `DEBUG=1` werden die Debug-Ausgaben angezeigt.
+Die Testsuite bildet die Symcon-Basisklasse nach, simuliert Sensoren, Aktoren und eine Uhr und prüft unter anderem Ausfahren ohne Befehlsflut, Verzögerung und Hysterese, Wind-, Böen-, Regen- und Frostschutz mit Sperren, Sensorausfall, eingefrorene Helligkeit (nur tagsüber), Handbetrieb und Erkennung der Fernbedienung, Wochentage, Nacht, Zeitfenster über Mitternacht, Anwesenheit mit Karenz, Sonnenrichtung und Sonnenstand, alle drei Arten der Ansteuerung, Wiederholung fehlgeschlagener Befehle, Benachrichtigungen, Einstellungen aus der Visualisierung, abgelehnte Aktionen, die Simulation (keine echten Befehle, vorgegebene Werte und Uhrzeit, übersprungene Verzögerungen, echter Windschutz, sauberer Wechsel zurück in den echten Betrieb), die Kachel (inklusive Schutz vor eingeschleustem HTML und sparsamer Updates), das Formular und die Vollständigkeit der Übersetzung. Mit `DEBUG=1` werden die Debug-Ausgaben angezeigt.
 
 `tests/stubs.php` lädt die Bibliothek zusätzlich mit den offiziellen [Symcon-Stubs](https://github.com/symcon/SymconStubs), legt eine Instanz an, verbindet Aktor- und Sensorvariablen und prüft, dass der Ausfahrbefehl über die Aktion ankommt.
 
 GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3 und 8.5 die Syntax, alle JSON-Dateien, die Testsuite und den Ladetest.
 
-## 12. Changelog
+## 13. Changelog
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.1 | 5 | 05.10.2026 | Simulation (Testbetrieb) mit Simulationsvariablen, vorgebbarer Uhrzeit, Protokoll und weiter aktivem echtem Wind- und Regenschutz |
 | 1.0 | 4 | 04.10.2026 | Einheit (Bft, km/h, m/s) wird direkt an den Wind- und Böengrenzen angezeigt |
 | 1.0 | 3 | 04.10.2026 | Nur noch ein Eintrag „Markisensteuerung“ beim Hinzufügen einer Instanz (keine Aliase mehr) |
 | 1.0 | 2 | 04.10.2026 | Schalter „Instanz aktiv“, Hersteller eingetragen |
 | 1.0 | 1 | 04.10.2026 | Erste Version als Modul, abgelöst vom bisherigen Markisen-Skript |
 
-## 13. Lizenz
+## 14. Lizenz
 
 Dieses Modul steht unter der **MIT-Lizenz** (siehe Datei [`LICENSE`](LICENSE)).
 

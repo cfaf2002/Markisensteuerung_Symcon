@@ -552,6 +552,47 @@
         },
         {
             "type": "ExpansionPanel",
+            "caption": "Simulation (test mode)",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "In the simulation the module decides as usual but does not move the awning. Sensor values and time of day can be set with the simulation variables of the instance. Every decision appears in the simulation log."
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "SimulationMode",
+                    "caption": "Simulation on – the awning is not moved"
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "SimSkipDelays",
+                    "caption": "Skip delays and locks in the simulation (react immediately)"
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "SimRealSafety",
+                    "caption": "Real wind and rain protection stays active (real sensors, really retracts)"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "Button",
+                            "caption": "Take over real sensor values",
+                            "onClick": "IPS_RequestAction($id, 'SimFromReal', 0);"
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Reset locks, pause and delays",
+                            "onClick": "IPS_RequestAction($id, 'SimClear', 0);"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
             "caption": "Display",
             "expanded": false,
             "items": [

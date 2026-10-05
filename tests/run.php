@@ -688,6 +688,126 @@ test('Übersetzung: alle Texte haben eine deutsche Übersetzung', function (): v
     check($missing === [], 'fehlende Übersetzungen: ' . implode(' | ', $missing));
 });
 
+
+test('Simulation: entscheidet, bewegt aber nichts', function (): void {
+    $m = markise(['SimulationMode' => true]);
+    check(Sym::$actions === [], 'kein echter Befehl');
+    check($m->attr('LastCommand') === 'extend', 'gedacht ausgefahren');
+    check($m->value('State') === Markisensteuerung::STATE_EXTENDING, 'Zustand zeigt die gedachte Fahrt');
+    check(str_starts_with((string) $m->value('Reason'), 'Simulation: '), 'Begründung mit „Simulation:“');
+    check(str_contains((string) $m->value('SimLog'), 'Würde senden: Ausfahren'), 'Protokoll: ' . $m->value('SimLog'));
+    check(str_contains((string) $m->value('SimLog'), 'Simulation gestartet'), 'Protokoll beginnt mit Start');
+    $tile = json_decode($m->attr('TileData'), true);
+    check($tile['simulation'] === true, 'Kachel zeigt Simulation');
+    foreach (['SimLux', 'SimTemp', 'SimWind', 'SimGust', 'SimRain', 'SimPresence', 'SimTime', 'SimLog'] as $ident) {
+        check($m->has($ident), 'Variable ' . $ident);
+    }
+    check($m->value('SimLux') === 50000.0, 'Startwert aus dem echten Sensor');
+});
+
+test('Simulation: Werte vorgeben', function (): void {
+    $m = markise(['SimulationMode' => true, 'DelayOff' => 15]);
+    $m->RequestAction('SimLux', 8000);
+    check($m->attr('LastCommand') === 'extend', 'mit Einfahrverzögerung: noch ausgefahren');
+    check(str_contains((string) $m->value('Reason'), 'Einfahren in 15 Min'), 'Begründung: ' . $m->value('Reason'));
+    $m->advance(15);
+    check($m->attr('LastCommand') === 'retract', 'nach 15 Minuten gedacht eingefahren');
+    $m->RequestAction('SimWind', 7);
+    check($m->value('Status') === Markisensteuerung::ST_WIND, 'simulierter Windalarm');
+    check(Sym::$actions === [], 'echter Wind ist ruhig: kein echter Befehl');
+    check(Sym::$vars[V_WIND]['value'] === 2, 'echter Sensor unverändert');
+});
+
+test('Simulation: Verzögerungen und Sperren überspringen', function (): void {
+    $m = markise(['SimulationMode' => true, 'SimSkipDelays' => true, 'DelayOn' => 5, 'DelayOff' => 15], '13:00', ['lux' => 5000.0]);
+    $m->RequestAction('SimLux', 60000);
+    check($m->attr('LastCommand') === 'extend', 'sofort ausgefahren');
+    $m->RequestAction('SimWind', 8);
+    $m->RequestAction('SimWind', 1);
+    check($m->value('Safety') === false, 'keine Windsperre');
+    check($m->attr('LastCommand') === 'extend', 'sofort wieder ausgefahren');
+});
+
+test('Simulation: Sperren zurücksetzen', function (): void {
+    $m = markise(['SimulationMode' => true]);
+    $m->RequestAction('SimWind', 8);
+    $m->RequestAction('SimWind', 1);
+    check($m->value('Safety') === true, 'Windsperre läuft');
+    $m->RequestAction('SimClear', 0);
+    check($m->value('Safety') === false, 'Sperre gelöscht');
+    check($m->attr('LastCommand') === 'extend', 'wieder ausgefahren');
+});
+
+test('Simulation: Uhrzeit vorgeben', function (): void {
+    $m = markise(['SimulationMode' => true]);
+    $m->RequestAction('SimTime', '23:00');
+    check($m->value('Status') === Markisensteuerung::ST_NIGHT, 'simulierte Nacht');
+    $m->RequestAction('SimTime', '');
+    check($m->value('Status') === Markisensteuerung::ST_SUN, 'leer = echte Uhrzeit');
+    check(throws(fn () => $m->RequestAction('SimTime', '25:99')), 'ungültige Uhrzeit abgelehnt');
+    check(throws(fn () => $m->RequestAction('SimLux', 'hell')), 'Text statt Zahl abgelehnt');
+});
+
+test('Simulation: Anwesenheit vorgeben', function (): void {
+    $m = markise(['SimulationMode' => true]);
+    $m->RequestAction('SimPresence', false);
+    check($m->value('Status') === Markisensteuerung::ST_GRACE, 'simulierte Abwesenheit: Karenz');
+});
+
+test('Simulation: echter Windschutz bleibt aktiv', function (): void {
+    $m = markise(['SimulationMode' => true, 'NotifySafety' => true]);
+    $m->sensor(V_WIND, 8);
+    check(actions() === [V_RETRACT . '=true'], 'echte Markise wirklich eingefahren');
+    check(str_contains((string) $m->value('SimLog'), 'Echter Windalarm (8 Bft)'), 'im Protokoll');
+    check(count(Sym::$notifications) === 1, 'eine Nachricht');
+    check($m->timers['Repeat']['ms'] > 0, 'Wiederholung geplant');
+    $m->RequestAction('RepeatRetract', 0);
+    check(count(Sym::$actions) === 2, 'Einfahrbefehl wiederholt');
+    $m->sensor(V_WIND, 9);
+    check(count(Sym::$actions) === 2, 'kein Dauerfeuer');
+    $m->sensor(V_WIND, 2);
+    check(str_contains((string) $m->value('SimLog'), 'Echter Alarm vorbei'), 'Ende im Protokoll');
+    check($m->value('Status') !== Markisensteuerung::ST_WIND, 'Simulation selbst sieht keinen Wind (simulierter Wert 2)');
+
+    $n = markise(['SimulationMode' => true, 'SimRealSafety' => false]);
+    $n->sensor(V_WIND, 8);
+    check(Sym::$actions === [], 'abgeschaltet: kein echter Befehl');
+});
+
+test('Simulation: Bedienung von Hand ist auch nur simuliert', function (): void {
+    $m = markise(['SimulationMode' => true]);
+    $m->Retract();
+    check(Sym::$actions === [], 'kein echter Befehl');
+    check($m->value('Status') === Markisensteuerung::ST_MANUAL, 'Handbetrieb-Pause wie echt');
+    check(str_contains((string) $m->value('SimLog'), 'Würde senden: Einfahren (Hand)'), 'im Protokoll');
+    Sym::$now += 10;
+    $m->sensor(V_RETRACT, true);
+    check($m->attr('ManualUntil') <= Sym::$now + 3600, 'echte Aktorvariable wird in der Simulation ignoriert');
+});
+
+test('Simulation beenden: Zustand wird neu abgeglichen', function (): void {
+    $m = markise(['SimulationMode' => true]);
+    $m->RequestAction('SimWind', 8);
+    check($m->attr('WindLockUntil') > 0, 'simulierte Windsperre');
+    $m->prop('SimulationMode', false);
+    $m->ApplyChanges();
+    check(!$m->has('SimLux') && !$m->has('SimLog'), 'Simulationsvariablen entfernt');
+    check($m->attr('WindLockUntil') === 0, 'simulierte Sperre gelöscht');
+    check(actions() === [V_EXTEND . '=true'], 'echter Befehl nach echten Werten');
+    check(!str_starts_with((string) $m->value('Reason'), 'Simulation'), 'Begründung ohne „Simulation:“');
+    $tile = json_decode($m->attr('TileData'), true);
+    check($tile['simulation'] === false, 'Kachel ohne Simulation');
+});
+
+test('Simulation: Werte nur in der Simulation und nur für eingestellte Sensoren', function (): void {
+    $m = markise();
+    check(throws(fn () => $m->RequestAction('SimLux', 1000)), 'ohne Simulation abgelehnt');
+    check(throws(fn () => $m->RequestAction('SimClear', 0)), 'Zurücksetzen ohne Simulation abgelehnt');
+    $n = markise(['SimulationMode' => true, 'GustVariableID' => 0]);
+    check(!$n->has('SimGust'), 'kein Böensensor: keine Simulationsvariable');
+    check(throws(fn () => $n->RequestAction('SimGust', 10)), 'abgelehnt');
+});
+
 // =====================================================================
 
 echo PHP_EOL . $passed . ' Prüfungen bestanden, ' . count($failed) . ' fehlgeschlagen.' . PHP_EOL;

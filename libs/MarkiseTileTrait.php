@@ -48,6 +48,7 @@ trait MarkiseTileTrait
         $data['canStop'] = $this->CanStop();
         $data['hasPosition'] = $this->ReadPropertyInteger('ActuatorMode') === 2;
         $data['automatic'] = (bool) $this->GetValue('Automatic');
+        $data['simulation'] = $this->Simulating();
         $data['state'] = (int) $this->GetValue('State');
         $data['position'] = $data['hasPosition'] ? (int) $this->GetValue('Position') : null;
         $data['travel'] = max(1, $this->ReadPropertyInteger('TravelTime'));

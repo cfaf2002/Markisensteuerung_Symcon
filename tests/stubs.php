@@ -107,6 +107,18 @@ try {
     ok(GetValue(IPS_GetObjectIDByIdent('Automatic', $id)) === true, 'Automatik an');
     ok(GetValue($extend) === true, 'Sonne: Ausfahrbefehl über die Aktion gesendet');
     ok(MARKISE_Evaluate($id) === true, 'MARKISE_Evaluate');
+    // Simulation
+    SetValue($extend, false);
+    IPS_SetProperty($id, 'SimulationMode', true);
+    IPS_ApplyChanges($id);
+    ok(@IPS_GetObjectIDByIdent('SimLux', $id) !== false && @IPS_GetObjectIDByIdent('SimLog', $id) !== false, 'Simulationsvariablen angelegt');
+    ok(GetValue($extend) === false, 'Simulation: kein echter Befehl');
+    RequestAction(IPS_GetObjectIDByIdent('SimLux', $id), 1000.0);
+    ok(str_starts_with((string) GetValue(IPS_GetObjectIDByIdent('Reason', $id)), 'Simulation'), 'Simulation: Begründung');
+    IPS_SetProperty($id, 'SimulationMode', false);
+    IPS_ApplyChanges($id);
+    ok(@IPS_GetObjectIDByIdent('SimLux', $id) === false, 'Simulation aus: Variablen entfernt');
+
     $tile = MARKISE_GetVisualizationTile($id);
     ok(!str_contains($tile, '/*INITIAL_DATA*/'), 'Kachel mit Startdaten');
     $form = json_decode(IPS_GetConfigurationForm($id), true);

@@ -134,6 +134,15 @@
     button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     #stop[hidden] { display: none; }
 
+    .sim {
+        display: none; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        color: #7a4b00; background: repeating-linear-gradient(-45deg, #ffd166, #ffd166 8px, #ffc94a 8px, #ffc94a 16px);
+    }
+    #tile.simulation .sim { display: flex; }
+    .sim span { overflow: hidden; text-overflow: ellipsis; }
+    #tile.simulation .canvas-g { opacity: min(.75, calc(var(--e) * 6)); }
+
     .error { display: none; font-size: 13px; }
     #tile.has-error .error { display: block; }
     #tile.has-error .stage, #tile.has-error .ctrl, #tile.has-error .timer, #tile.has-error .reason { display: none; }
@@ -171,6 +180,7 @@
         <button class="auto" id="auto" role="switch" aria-checked="false"><span class="txt" data-t="Automatic">Automatic</span><i class="track"></i></button>
     </div>
 
+    <div class="sim" id="sim"><span data-t="Simulation – the awning is not moved">Simulation – the awning is not moved</span></div>
     <div class="error" id="error"></div>
 
     <div class="stage" aria-hidden="true">
@@ -294,6 +304,7 @@
             if (d.theme === 1) cls.push('theme-dark');
             if (d.theme === 2) cls.push('theme-light');
             if (d.reduce) cls.push('reduce');
+            if (d.simulation) cls.push('simulation');
             if (d.error) cls.push('has-error', 'tone-off');
             if (tile.classList.contains('paused')) cls.push('paused');
             tile.className = cls.join(' ');
