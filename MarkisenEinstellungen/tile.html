@@ -1,29 +1,35 @@
 <!--
-    Kachel für das Modul "Markisen-Einstellungen" (IP-Symcon HTML-SDK)
+    Kachel für das Modul "Markisen Einstellungen" (IP-Symcon HTML-SDK)
     Copyright (c) 2026 Armin Frohwerk · MIT-Lizenz (siehe LICENSE)
     SPDX-License-Identifier: MIT
 
     Sicherheit: Alle Werte werden per textContent bzw. value gesetzt, nie als HTML.
                 Geprüft und begrenzt wird jeder Wert im Modul, nicht nur hier.
-    Leistung:   Keine externen Dateien; Plus/Minus wird gesammelt und erst nach einer kurzen Pause gesendet.
+    Leistung:   Keine externen Dateien, keine Dauer-Animationen. Plus/Minus wird gesammelt
+                und erst nach einer kurzen Pause gesendet.
 -->
 <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
 
     #tile {
+        /* Symcon-Design (Standard): Schrift- und Akzentfarbe der gewählten Visualisierung */
         --fg: var(--content-color, #eef3f7);
         --accent: var(--accent-color, #e2a63b);
-        --muted: color-mix(in srgb, var(--fg) 62%, transparent);
-        --line: color-mix(in srgb, var(--fg) 14%, transparent);
-        --well: color-mix(in srgb, var(--fg) 7%, transparent);
+        --muted: color-mix(in srgb, var(--fg) 58%, transparent);
+        --line: color-mix(in srgb, var(--fg) 10%, transparent);
+        --card: color-mix(in srgb, var(--fg) 5%, transparent);
+        --card-hi: color-mix(in srgb, var(--fg) 9%, transparent);
+        --well: color-mix(in srgb, var(--fg) 8%, transparent);
+        --glow: color-mix(in srgb, var(--accent) 30%, transparent);
+        --ok: #34b36b;
         --bad: #e5484d;
+        --r: 16px;
 
         box-sizing: border-box;
         width: 100%;
         height: 100%;
         /* Oben bleibt Platz für Titel und Symbole, die die Kachel-Visualisierung selbst zeichnet */
         --hdr: clamp(40px, 11cqmin, 54px);
-        /* Nur der Inhalt darunter scrollt – so rutscht nichts unter den Titel der Kachel */
         padding: var(--hdr) 0 0;
         display: flex;
         flex-direction: column;
@@ -36,59 +42,113 @@
         -webkit-font-smoothing: antialiased;
         -webkit-tap-highlight-color: transparent;
     }
+    #tile.theme-dark  { --fg: #eef3f7; --accent: #e2a63b; background: radial-gradient(120% 80% at 0% 0%, #22374a, #142029 60%); border-radius: inherit; }
+    #tile.theme-light { --fg: #1d2b36; --accent: #c98a1c; background: radial-gradient(120% 80% at 0% 0%, #ffffff, #e6eef4 60%); border-radius: inherit; }
+
     #scroll {
         flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-        padding: 0 clamp(8px, 4cqmin, 16px) clamp(8px, 4cqmin, 16px);
-        scrollbar-width: thin;
+        padding: 2px clamp(8px, 3.5cqmin, 16px) clamp(8px, 3.5cqmin, 16px);
+        scrollbar-width: thin; scrollbar-color: var(--line) transparent;
     }
-    #tile.theme-dark  { --fg: #eef3f7; --accent: #e2a63b; background: linear-gradient(180deg, #1b2a38, #142029); border-radius: inherit; }
-    #tile.theme-light { --fg: #1d2b36; --accent: #c98a1c; background: linear-gradient(180deg, #f4f8fb, #e6eef4); border-radius: inherit; }
 
-    /* Zwei Spalten: Sonnenautomatik und Zeiten links, Sicherheit und Anwesenheit rechts */
-    .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
-    .col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    /* ---------- Raster: links Sonnenautomatik + Zeiten, rechts Sicherheit + Anwesenheit ---------- */
+    .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
     @container (min-width: 620px) { .grid { grid-template-columns: 1fr 1fr; align-items: start; } }
 
-    h3 { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-    .rows { border-top: 1px solid var(--line); }
-    .row { display: flex; align-items: center; gap: 8px; min-height: 40px; border-bottom: 1px solid var(--line); }
-    .row .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-    .row.saving .val { opacity: .55; }
-
-    .step { display: flex; align-items: center; gap: 4px; flex: none; }
-    .step .val { min-width: 84px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .btn {
-        width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--well);
-        color: inherit; font: inherit; font-size: 17px; font-weight: 600; line-height: 1; cursor: pointer; padding: 0;
+    /* ---------- Karten ---------- */
+    .card {
+        position: relative;
+        border-radius: var(--r);
+        background: linear-gradient(180deg, var(--card-hi), var(--card));
+        border: 1px solid var(--line);
+        box-shadow: 0 1px 0 color-mix(in srgb, #fff 6%, transparent) inset, 0 8px 24px -16px rgba(0, 0, 0, .55);
+        padding: 12px 14px 6px;
+        transition: border-color .25s, box-shadow .25s;
     }
-    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .card.saving { border-color: color-mix(in srgb, var(--accent) 55%, transparent); box-shadow: 0 0 0 3px var(--glow); }
+    .card-h { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .icon {
+        width: 30px; height: 30px; border-radius: 10px; flex: none; display: grid; place-items: center;
+        color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent);
+    }
+    .icon svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .card-h h3 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: .01em; }
+
+    .row { display: flex; align-items: center; gap: 10px; min-height: 46px; border-top: 1px solid var(--line); }
+    .card-h + .row { border-top: 0; }
+    .row .lbl { flex: 1; min-width: 0; color: color-mix(in srgb, var(--fg) 88%, transparent); overflow: hidden; text-overflow: ellipsis; }
+    .row.dim .lbl, .row.dim .pill, .row.dim input { opacity: .45; }
+
+    /* ---------- Stepper als Pille ---------- */
+    .pill {
+        flex: none; display: flex; align-items: center; height: 36px; border-radius: 999px;
+        background: var(--well); border: 1px solid var(--line); overflow: hidden;
+    }
+    .pill button {
+        width: 38px; height: 100%; border: 0; background: none; color: inherit; cursor: pointer; padding: 0;
+        display: grid; place-items: center; touch-action: manipulation;
+    }
+    .pill button svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+    .pill button:hover:not(:disabled) { background: var(--card-hi); }
+    .pill button:active:not(:disabled) { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+    .pill .val {
+        min-width: 76px; padding: 0 4px; text-align: center; white-space: nowrap;
+        font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
+    }
+    .pill .val small { margin-left: 3px; font-size: 11px; font-weight: 600; color: var(--muted); }
+
+    /* ---------- Schalter ---------- */
+    .switch {
+        flex: none; width: 46px; height: 28px; border-radius: 999px; border: 0; padding: 0; cursor: pointer; position: relative;
+        background: var(--well); box-shadow: inset 0 0 0 1px var(--line); transition: background .2s, box-shadow .2s;
+    }
+    .switch::after {
+        content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+        background: color-mix(in srgb, var(--fg) 85%, transparent); box-shadow: 0 2px 6px rgba(0, 0, 0, .35); transition: transform .22s cubic-bezier(.3, .7, .4, 1.3), background .2s;
+    }
+    .switch[aria-checked="true"] { background: var(--accent); box-shadow: 0 0 0 3px var(--glow); }
+    .switch[aria-checked="true"]::after { transform: translateX(18px); background: #fff; }
+
+    /* ---------- Anwesenheit: großer Status ---------- */
+    .presence { min-height: 58px; }
+    .presence .who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .presence .who b { font-size: 15px; }
+    .presence .who span { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .presence .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--muted); }
+    .presence.on .dot { background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 22%, transparent); }
+
+    /* ---------- Uhrzeit ---------- */
+    input[type="time"] {
+        flex: none; height: 36px; box-sizing: border-box; font: inherit; font-size: 15px; font-weight: 700; color: inherit;
+        background: var(--well); border: 1px solid var(--line); border-radius: 999px; padding: 0 12px; color-scheme: dark light;
+    }
+
+    /* ---------- Wochentage als runde Chips ---------- */
+    .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 6px 0 10px; }
+    .day {
+        aspect-ratio: 1; max-height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--well);
+        color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; padding: 0;
+        transition: background .2s, color .2s, box-shadow .2s;
+    }
+    .day[aria-pressed="true"] { color: #fff; background: var(--accent); border-color: transparent; box-shadow: 0 4px 12px -4px var(--glow); }
+    .days-lbl { padding-top: 10px; font-size: 12px; color: var(--muted); }
+
     button:disabled, input:disabled { opacity: .4; cursor: not-allowed; }
     button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-    .switch { flex: none; width: 40px; height: 24px; border-radius: 12px; border: 0; background: var(--line); position: relative; cursor: pointer; padding: 0; }
-    .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--fg); transition: transform .2s; }
-    .switch[aria-checked="true"] { background: var(--accent); }
-    .switch[aria-checked="true"]::after { transform: translateX(16px); background: #fff; }
-
-    input[type="time"] {
-        flex: none; font: inherit; font-weight: 600; color: inherit; background: var(--well);
-        border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; color-scheme: dark light;
-    }
-
-    .days { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
-    .day {
-        flex: 1 0 36px; min-height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--well);
-        color: var(--muted); font: inherit; font-weight: 600; cursor: pointer;
-    }
-    .day[aria-pressed="true"] { color: inherit; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, transparent); }
-
-    .error { display: none; color: var(--bad); }
+    .error { display: none; color: var(--bad); padding: 8px 0; }
     #tile.has-error .error { display: block; }
     #tile.has-error .grid { display: none; }
-    .ro { display: none; margin-bottom: 8px; color: var(--muted); font-size: 12px; }
+    .ro {
+        display: none; margin-bottom: 10px; padding: 8px 12px; border-radius: 12px; font-size: 12px;
+        color: var(--muted); background: var(--card); border: 1px dashed var(--line);
+    }
     #tile.read-only .ro { display: block; }
 
-    @media (prefers-reduced-motion: reduce) { .switch::after { transition: none; } }
+    @media (prefers-reduced-motion: reduce) {
+        .switch, .switch::after, .day, .card { transition: none; }
+    }
 </style>
 
 <div id="tile">
@@ -105,9 +165,17 @@
 
         var tile = document.getElementById('tile');
         var grid = document.getElementById('grid');
-        var data = null;
         var pending = {};      // Name → Timer: gesammelte Plus/Minus-Klicks
         var DEBOUNCE = 700;
+        var SVG = 'http://www.w3.org/2000/svg';
+
+        // Symbole je Gruppe (eigene Pfade, keine externen Dateien)
+        var ICONS = {
+            'Sun protection': ['M12 4V2', 'M12 22v-2', 'M4 12H2', 'M22 12h-2', 'M5.6 5.6 4.2 4.2', 'M19.8 19.8l-1.4-1.4', 'M5.6 18.4l-1.4 1.4', 'M19.8 4.2l-1.4 1.4', 'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z'],
+            'Safety': ['M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z', 'M9 12l2 2 4-4'],
+            'Times': ['M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z', 'M12 7v5l3 2'],
+            'Presence': ['M3 11 12 4l9 7', 'M5 10v10h14V10', 'M10 20v-5h4v5']
+        };
 
         function t(s) {
             return typeof window.translate === 'function' ? window.translate(s) : s;
@@ -126,28 +194,62 @@
             return e;
         }
 
+        function icon(paths) {
+            var s = document.createElementNS(SVG, 'svg');
+            s.setAttribute('viewBox', '0 0 24 24');
+            s.setAttribute('aria-hidden', 'true');
+            (paths || []).forEach(function (d) {
+                var p = document.createElementNS(SVG, 'path');
+                p.setAttribute('d', d);
+                s.appendChild(p);
+            });
+            return s;
+        }
+
         function decimals(step) {
             var s = String(step);
             return s.indexOf('.') < 0 ? 0 : s.length - s.indexOf('.') - 1;
         }
 
-        function fmt(v, item) {
+        function setValue(span, v, item) {
             var d = decimals(item.step);
-            var txt = Number(v).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
-            return item.unit ? txt + ' ' + item.unit : txt;
+            span.textContent = Number(v).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+            if (item.unit) span.appendChild(el('small', '', item.unit));
         }
 
-        function numberRow(item, ro) {
+        // Plus/Minus mit Wiederholung beim Gedrückthalten
+        function repeatButton(btn, fn) {
+            var timer = null;
+            function stop() { clearTimeout(timer); timer = null; }
+            btn.addEventListener('pointerdown', function (e) {
+                if (btn.disabled) return;
+                e.preventDefault();
+                fn();
+                var delay = 420;
+                (function loop() {
+                    timer = setTimeout(function () { fn(); delay = Math.max(70, delay * 0.8); loop(); }, delay);
+                })();
+            });
+            ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { btn.addEventListener(ev, stop); });
+            btn.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); }
+            });
+        }
+
+        function numberRow(item, ro, card) {
             var row = el('div', 'row');
             row.appendChild(el('span', 'lbl', item.label));
-            var box = el('span', 'step');
-            var minus = el('button', 'btn', '−');
-            var plus = el('button', 'btn', '+');
-            var val = el('span', 'val', fmt(item.value, item));
+            var pill = el('span', 'pill');
+            var minus = el('button');
+            var plus = el('button');
+            var val = el('span', 'val');
             minus.type = plus.type = 'button';
+            minus.appendChild(icon(['M5 12h14']));
+            plus.appendChild(icon(['M5 12h14', 'M12 5v14']));
             minus.setAttribute('aria-label', item.label + ' −');
             plus.setAttribute('aria-label', item.label + ' +');
             minus.disabled = plus.disabled = ro;
+            setValue(val, item.value, item);
 
             function change(dir) {
                 var d = decimals(item.step);
@@ -155,28 +257,26 @@
                 v = Math.max(item.min, Math.min(item.max, v));
                 if (v === item.value) return;
                 item.value = v;
-                val.textContent = fmt(v, item);
-                row.classList.add('saving');
+                setValue(val, v, item);
+                card.classList.add('saving');
                 clearTimeout(pending[item.name]);
                 pending[item.name] = setTimeout(function () {
                     delete pending[item.name];
-                    row.classList.remove('saving');
+                    if (!Object.keys(pending).length) card.classList.remove('saving');
                     send(item.name, v);
                 }, DEBOUNCE);
             }
-            minus.addEventListener('click', function () { change(-1); });
-            plus.addEventListener('click', function () { change(1); });
+            repeatButton(minus, function () { change(-1); });
+            repeatButton(plus, function () { change(1); });
 
-            box.appendChild(minus);
-            box.appendChild(val);
-            box.appendChild(plus);
-            row.appendChild(box);
+            pill.appendChild(minus);
+            pill.appendChild(val);
+            pill.appendChild(plus);
+            row.appendChild(pill);
             return row;
         }
 
-        function boolRow(item, ro) {
-            var row = el('div', 'row');
-            row.appendChild(el('span', 'lbl', item.label));
+        function switchButton(item, ro, onChange) {
             var sw = el('button', 'switch');
             sw.type = 'button';
             sw.setAttribute('role', 'switch');
@@ -186,9 +286,32 @@
             sw.addEventListener('click', function () {
                 item.value = !item.value;
                 sw.setAttribute('aria-checked', item.value ? 'true' : 'false');
+                if (onChange) onChange(item.value);
                 send(item.name, item.value);
             });
-            row.appendChild(sw);
+            return sw;
+        }
+
+        function boolRow(item, ro, onChange) {
+            var row = el('div', 'row');
+            row.appendChild(el('span', 'lbl', item.label));
+            row.appendChild(switchButton(item, ro, onChange));
+            return row;
+        }
+
+        // Anwesenheit: großer Status mit Namen der Variable
+        function presenceRow(item, ro) {
+            var row = el('div', 'row presence' + (item.value ? ' on' : ''));
+            row.appendChild(el('i', 'dot'));
+            var who = el('span', 'who');
+            var state = el('b', '', t(item.value ? 'Present' : 'Absent'));
+            who.appendChild(state);
+            who.appendChild(el('span', '', item.label));
+            row.appendChild(who);
+            row.appendChild(switchButton(item, ro, function (on) {
+                row.classList.toggle('on', on);
+                state.textContent = t(on ? 'Present' : 'Absent');
+            }));
             return row;
         }
 
@@ -207,8 +330,25 @@
             return row;
         }
 
+        function weekdays(d, ro, card) {
+            card.appendChild(el('div', 'days-lbl', d.weekdaysTitle || ''));
+            var days = el('div', 'days');
+            d.weekdays.forEach(function (w) {
+                var b = el('button', 'day', w.label);
+                b.type = 'button';
+                b.setAttribute('aria-pressed', w.value ? 'true' : 'false');
+                b.disabled = ro;
+                b.addEventListener('click', function () {
+                    w.value = !w.value;
+                    b.setAttribute('aria-pressed', w.value ? 'true' : 'false');
+                    send(w.name, w.value);
+                });
+                days.appendChild(b);
+            });
+            card.appendChild(days);
+        }
+
         function render(d) {
-            data = d;
             var cls = [];
             if (d.theme === 1) cls.push('theme-dark');
             if (d.theme === 2) cls.push('theme-light');
@@ -223,45 +363,50 @@
             grid.textContent = '';
             if (d.error) return;
             var ro = !!d.readOnly;
-
+            var groups = d.groups || [];
             // ältere Daten ohne Gruppenschlüssel: Wochentage zur letzten Gruppe
-            var timesTitle = (d.groups && d.groups.length) ? d.groups[d.groups.length - 1].title : '';
+            var lastTitle = groups.length ? groups[groups.length - 1].title : '';
             var cols = [el('div', 'col'), el('div', 'col')];
             grid.appendChild(cols[0]);
             grid.appendChild(cols[1]);
 
-            (d.groups || []).forEach(function (g, i) {
+            groups.forEach(function (g, i) {
                 if (!g.items.length) return;
-                var sec = el('section');
-                sec.appendChild(el('h3', '', g.title));
-                var rows = el('div', 'rows');
+                var card = el('section', 'card');
+                var head = el('div', 'card-h');
+                var ic = el('span', 'icon');
+                ic.appendChild(icon(ICONS[g.key] || ICONS.Times));
+                head.appendChild(ic);
+                head.appendChild(el('h3', '', g.title));
+                card.appendChild(head);
+
+                var isTimes = g.key ? g.key === 'Times' : g.title === lastTitle;
+                if (isTimes && d.weekdays) weekdays(d, ro, card);
+
+                // Uhrzeiten nur hervorheben, wenn das Zeitfenster eingeschaltet ist
+                var timeRows = [];
+                var windowOn = true;
                 g.items.forEach(function (item) {
-                    if (item.type === 'bool') rows.appendChild(boolRow(item, ro));
-                    else if (item.type === 'time') rows.appendChild(timeRow(item, ro));
-                    else rows.appendChild(numberRow(item, ro));
+                    if (item.name === 'UseTimeWindow') windowOn = !!item.value;
                 });
-                // Wochentage gehören zu „Zeiten“
-                if ((g.key ? g.key === 'Times' : g.title === timesTitle) && d.weekdays) {
-                    var title = el('div', 'row');
-                    title.appendChild(el('span', 'lbl', d.weekdaysTitle || ''));
-                    rows.insertBefore(title, rows.firstChild);
-                    var days = el('div', 'days');
-                    d.weekdays.forEach(function (w) {
-                        var b = el('button', 'day', w.label);
-                        b.type = 'button';
-                        b.setAttribute('aria-pressed', w.value ? 'true' : 'false');
-                        b.disabled = ro;
-                        b.addEventListener('click', function () {
-                            w.value = !w.value;
-                            b.setAttribute('aria-pressed', w.value ? 'true' : 'false');
-                            send(w.name, w.value);
-                        });
-                        days.appendChild(b);
-                    });
-                    rows.insertBefore(days, title.nextSibling);
-                }
-                sec.appendChild(rows);
-                cols[i % 2].appendChild(sec);
+                g.items.forEach(function (item) {
+                    var row;
+                    if (item.name === 'Presence') {
+                        row = presenceRow(item, ro);
+                    } else if (item.type === 'bool') {
+                        row = boolRow(item, ro, item.name === 'UseTimeWindow' ? function (on) {
+                            timeRows.forEach(function (r) { r.classList.toggle('dim', !on); });
+                        } : null);
+                    } else if (item.type === 'time') {
+                        row = timeRow(item, ro);
+                        timeRows.push(row);
+                        row.classList.toggle('dim', !windowOn);
+                    } else {
+                        row = numberRow(item, ro, card);
+                    }
+                    card.appendChild(row);
+                });
+                cols[i % 2].appendChild(card);
             });
         }
 

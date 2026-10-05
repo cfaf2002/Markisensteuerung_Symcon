@@ -239,7 +239,9 @@ Eine eigene Instanz vom Typ **Markisen Einstellungen** liefert eine zweite Kache
 
 Bei breiter Kachel stehen links Sonnenautomatik und Zeiten, rechts Sicherheit und Anwesenheit.
 
-Zahlen ändern sich mit Plus und Minus. Mehrere schnelle Klicks werden gesammelt und erst nach einer kurzen Pause gespeichert, damit die Markisensteuerung nicht bei jedem Klick neu übernimmt. Wind und Böen nutzen die Einheit des jeweiligen Sensors. Ist die Kachel breit genug, stehen die Gruppen in zwei Spalten; bei wenig Höhe lässt sie sich scrollen.
+Die Kachel ist modern gestaltet: jede Gruppe als Karte mit Symbol, Zahlen in runden Plus/Minus-Pillen, Wochentage als runde Tasten, große Anwesenheitsanzeige mit grünem Punkt. Die Uhrzeiten des Zeitfensters sind abgeblendet, solange das Zeitfenster aus ist. Farben kommen aus dem gewählten Symcon-Design.
+
+Zahlen ändern sich mit Plus und Minus, gedrückt halten zählt schnell weiter. Mehrere schnelle Klicks werden gesammelt und erst nach einer kurzen Pause gespeichert, damit die Markisensteuerung nicht bei jedem Klick neu übernimmt. Wind und Böen nutzen die Einheit des jeweiligen Sensors. Ist die Kachel breit genug, stehen die Gruppen in zwei Spalten; bei wenig Höhe lässt sie sich scrollen.
 
 Die Werte gehören weiterhin der Markisensteuerung. Die Einstellungs-Instanz speichert davon nichts selbst, sondern ruft `MARKISE_SetParameter` auf. Änderungen im Formular der Markisensteuerung erscheinen sofort auch in der Kachel. Setzt man die Einfahrgrenze über die Ausfahrgrenze, zieht die Ausfahrgrenze mit (und umgekehrt), damit die Instanz gültig bleibt.
 
@@ -439,6 +441,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.3 | 14 | 05.10.2026 | Einstellungs-Kachel im neuen Design: Karten mit Symbolen, Pillen-Stepper mit Gedrückthalten, runde Wochentags-Tasten, große Anwesenheitsanzeige, abgeblendetes Zeitfenster |
 | 1.3 | 13 | 05.10.2026 | Anwesenheitsvariable, die unter die Instanz verschoben wurde, lässt sich wieder schalten (Kachel, Objektbaum, Visualisierung); Einstellungs-Kachel scrollt nur unterhalb des Titels |
 | 1.3 | 12 | 05.10.2026 | Einstellungs-Kachel lädt beim Öffnen immer frische Werte (nach einem Update fehlten sonst Anwesenheit und Wochentage, bis sich ein Wert änderte) |
 | 1.3 | 11 | 05.10.2026 | Einstellungs-Kachel: Gruppe „Anwesenheit“ mit Schalter für die Anwesenheitsvariable und Karenz, zweispaltiges Layout ohne Lücke |

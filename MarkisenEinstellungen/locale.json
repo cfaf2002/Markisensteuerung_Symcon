@@ -13,7 +13,9 @@
             "The selected instance is not an awning control": "Die gewählte Instanz ist keine Markisensteuerung",
             "The selected instance is not an awning control.": "Die gewählte Instanz ist keine Markisensteuerung.",
             "Please select the awning control in the instance.": "Bitte in der Instanz die Markisensteuerung auswählen.",
-            "Display only – changes are switched off in the instance": "Nur Anzeige – Änderungen sind in der Instanz ausgeschaltet"
+            "Display only – changes are switched off in the instance": "Nur Anzeige – Änderungen sind in der Instanz ausgeschaltet",
+            "Present": "Anwesend",
+            "Absent": "Abwesend"
         }
     }
 }
