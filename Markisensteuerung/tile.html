@@ -79,18 +79,19 @@
 
     /* Weiche Wolken aus Verläufen (ohne teure Filter) */
     .drift { animation: drift linear infinite; }
-    .d1 { animation-duration: 55s; animation-delay: -14s; }
-    .d2 { animation-duration: 80s; animation-delay: -45s; }
-    .d3 { animation-duration: 65s; animation-delay: -28s; }
-    .d4 { animation-duration: 45s; animation-delay: -8s; }
+    .d1 { animation-duration: 95s; animation-delay: -24s; }
+    .d2 { animation-duration: 135s; animation-delay: -70s; }
+    .d3 { animation-duration: 115s; animation-delay: -48s; }
+    .d4 { animation-duration: 80s; animation-delay: -15s; }
 
+    /* Vögel: Flug quer über den Himmel, sanftes Auf und Ab, Flügelschlag mit Gleitphasen */
     .bird { animation: fly linear infinite; }
-    .bird path { fill: none; stroke: color-mix(in srgb, var(--fg) 70%, #000); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; transform-box: fill-box; transform-origin: center; animation: flap .55s ease-in-out infinite alternate; }
-    .b1 { animation-duration: 18s; }
-    .b2 { animation-duration: 23s; animation-delay: -8s; }
-    .b2 path { animation-delay: -.2s; }
-    .b3 { animation-duration: 21s; animation-delay: -13s; }
-    .b3 path { animation-delay: -.35s; }
+    .bob { animation: bob ease-in-out infinite alternate; }
+    .wing { fill: color-mix(in srgb, var(--fg) 72%, #000); transform-box: fill-box; transform-origin: 50% 70%; animation: flap ease-in-out infinite; }
+    .b1 { animation-duration: 30s; animation-delay: -4s; }  .b1 .bob { animation-duration: 3.4s; } .b1 .wing { animation-duration: 2.6s; }
+    .b2 { animation-duration: 33s; animation-delay: -6s; }  .b2 .bob { animation-duration: 4.1s; animation-delay: -1s; } .b2 .wing { animation-duration: 2.9s; animation-delay: -.4s; }
+    .b3 { animation-duration: 41s; animation-delay: -22s; } .b3 .bob { animation-duration: 5s; animation-delay: -2.2s; } .b3 .wing { animation-duration: 3.3s; animation-delay: -1.1s; }
+    .b4 { animation-duration: 36s; animation-delay: -27s; } .b4 .bob { animation-duration: 3.8s; animation-delay: -.6s; } .b4 .wing { animation-duration: 2.4s; animation-delay: -1.7s; }
 
     .moon .disc { fill: #f3efe0; }
     .moon .halo { fill: url(#moonGlow); }
@@ -111,27 +112,50 @@
     .snow circle:nth-child(3n) { animation-delay: -3.1s; }
     .bolt path { fill: #ffe066; filter: drop-shadow(0 0 6px #fff3b0); animation: flash 4s steps(1) infinite; }
 
-    /* Garten mit Haus und Markise */
+    /* Garten mit modernem Flachdachhaus und Markise */
     .wall { fill: url(#wallGrad); }
-    .siding { stroke: rgba(80, 60, 40, .12); stroke-width: 1; }
-    .window-frame { fill: #f4f1ea; }
+    .roof { fill: #353a40; }
+    .roof-edge { fill: #565d65; }
+    .plinth { fill: #4a5058; }
+    .cladding { fill: url(#woodGrad); }
+    .slats { stroke: rgba(60, 38, 20, .35); stroke-width: .7; }
+    .alu { fill: #3a4047; }
     .window-glass { fill: url(#glass); }
-    .door-frame { fill: #3b2f26; }
-    .door-inside { fill: #2a2119; }
-    .door-leaf { fill: url(#doorGrad); transform-box: fill-box; transform-origin: left center; transition: transform 1s ease; }
-    #tile.door-open .door-leaf { transform: scaleX(.28); }
+    .glass-shine { fill: rgba(255, 255, 255, .22); }
+    .door-inside { fill: #2b2a28; }
+    .door-fixed { fill: url(#doorGrad); }
+    .door-leaf { fill: url(#doorGrad); stroke: #3a4047; stroke-width: 1.6; transition: transform 1.2s ease; }
+    #tile.door-open .door-leaf { transform: translateX(15px); }
+    .wall-lamp { fill: #3a4047; }
     .grass { fill: url(#grassGrad); }
-    .terrace { fill: #b9a58d; }
-    .terrace-line { stroke: rgba(70, 55, 40, .25); stroke-width: 1; }
-    .furniture { fill: #5d4a3a; }
-    .plant-pot { fill: #c46a3a; }
-    .plant { fill: #4f9a45; }
+    .mow { fill: rgba(255, 255, 255, .06); }
+    .terrace { fill: url(#deckGrad); }
+    .terrace-line { stroke: rgba(60, 50, 40, .22); stroke-width: .7; fill: none; }
+    .terrace-edge { fill: #8c7a66; }
+    .frame { fill: #3a4047; }
+    .wood { fill: #b68456; }
+    .cushion { fill: #ece6da; }
+    .pillow { fill: #6f9d8c; }
+    .planter { fill: #3f454c; }
+    .blades { fill: none; stroke: #6f9a55; stroke-width: 1.2; stroke-linecap: round; transform-box: fill-box; transform-origin: 50% 100%; animation: sway 4.5s ease-in-out infinite alternate; }
+    .blades.alt { stroke: #8bb06a; animation-duration: 5.6s; animation-delay: -2s; }
+    .box { fill: url(#boxGrad); }
+    .tree-crown { fill: url(#crownGrad); }
+    .tree-trunk { fill: #6d5440; }
+    .cypress { fill: url(#cypGrad); }
+    .lavender { fill: #9a86c9; }
+    .fence-post { fill: #3a4047; }
+    .fence-slat { fill: #a77a52; }
     .flower { fill: #f28fb1; }
     .dimmer { opacity: 0; transition: opacity 1.2s ease; }
     #tile.wx-night .dimmer { opacity: .5; }
     #tile.wx-rain .dimmer, #tile.wx-storm .dimmer, #tile.wx-wind .dimmer { opacity: .2; }
     .window-glow { fill: #ffcf73; opacity: 0; transition: opacity 1.2s ease; filter: drop-shadow(0 0 3px #ffb347); }
-    #tile.wx-night .window-glow { opacity: .92; }
+    #tile.wx-night .window-glow { opacity: .9; }
+    .lamp-glow { fill: url(#lampGlow); opacity: 0; transition: opacity 1.2s ease; }
+    #tile.wx-night .lamp-glow { opacity: 1; }
+    .door-light { fill: #ffcf73; opacity: 0; transition: opacity 1.2s ease; }
+    #tile.wx-night.door-open .door-light { opacity: .55; }
 
     .canvas-g {
         transform-box: view-box; transform-origin: 92px 44px;
@@ -144,7 +168,7 @@
     .cloth { stroke: rgba(20, 30, 40, .55); stroke-width: .9; stroke-linejoin: round; }
     .cloth-under { fill: rgba(20, 30, 40, .35); }
     .cloth-shine { fill: rgba(255, 255, 255, .28); }
-    .cassette { fill: #e8ecef; stroke: rgba(0, 0, 0, .15); stroke-width: .6; }
+    .cassette { fill: #3a4047; stroke: rgba(255, 255, 255, .18); stroke-width: .6; }
     .shade { fill: rgba(20, 30, 40, .28); transform-box: view-box; transform-origin: 92px 120px; transform: scaleX(var(--e)); transition: transform var(--travel) linear; }
     #tile.wx-night .shade, #tile.wx-cloud .shade, #tile.wx-rain .shade, #tile.wx-storm .shade, #tile.wx-wind .shade, #tile.wx-frost .shade { opacity: .25; }
     #tile.simulation .canvas-g { opacity: min(.75, calc(var(--e) * 6)); }
@@ -251,8 +275,10 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes breathe { 50% { transform: scale(1.06); opacity: .85; } }
     @keyframes drift { from { transform: translateX(-160px); } to { transform: translateX(560px); } }
-    @keyframes fly { from { transform: translate(-40px, 0); } 50% { transform: translate(220px, -10px); } to { transform: translate(480px, 4px); } }
-    @keyframes flap { from { transform: scaleY(1); } to { transform: scaleY(-.55); } }
+    @keyframes fly { from { transform: translateX(-80px); } to { transform: translateX(520px); } }
+    @keyframes bob { from { transform: translateY(-5px); } to { transform: translateY(6px); } }
+    @keyframes flap { 0%, 24%, 48% { transform: scaleY(1); } 12%, 36% { transform: scaleY(-.7); } 60%, 100% { transform: scaleY(.55); } }
+    @keyframes sway { from { transform: rotate(-2.5deg); } to { transform: rotate(2.5deg); } }
     @keyframes twinkle { from { opacity: .25; } to { opacity: 1; } }
     @keyframes pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--tone) 12%, transparent); } }
     @keyframes gust { from { stroke-dashoffset: 120; } to { stroke-dashoffset: 0; } }
@@ -305,9 +331,10 @@
             <g class="wx storm"><g class="drift d4"><ellipse cx="90.0" cy="70.0" rx="52.0" ry="24.0" fill="url(#puffDark)"></ellipse><ellipse cx="54.0" cy="78.0" rx="36.0" ry="18.0" fill="url(#puffDark)"></ellipse><ellipse cx="126.0" cy="76.0" rx="40.0" ry="20.0" fill="url(#puffDark)"></ellipse><ellipse cx="78.0" cy="54.0" rx="32.0" ry="22.0" fill="url(#puffDark)"></ellipse><ellipse cx="110.0" cy="58.0" rx="30.0" ry="20.0" fill="url(#puffDark)"></ellipse><ellipse cx="150.0" cy="82.0" rx="28.0" ry="14.0" fill="url(#puffDark)"></ellipse><ellipse cx="26.0" cy="86.0" rx="24.0" ry="12.0" fill="url(#puffDark)"></ellipse></g><g class="drift d1"><ellipse cx="260.0" cy="50.0" rx="46.8" ry="21.6" fill="url(#puffDark)"></ellipse><ellipse cx="227.6" cy="57.2" rx="32.4" ry="16.2" fill="url(#puffDark)"></ellipse><ellipse cx="292.4" cy="55.4" rx="36.0" ry="18.0" fill="url(#puffDark)"></ellipse><ellipse cx="249.2" cy="35.6" rx="28.8" ry="19.8" fill="url(#puffDark)"></ellipse><ellipse cx="278.0" cy="39.2" rx="27.0" ry="18.0" fill="url(#puffDark)"></ellipse><ellipse cx="314.0" cy="60.8" rx="25.2" ry="12.6" fill="url(#puffDark)"></ellipse><ellipse cx="202.4" cy="64.4" rx="21.6" ry="10.8" fill="url(#puffDark)"></ellipse></g><g class="drift d3"><ellipse cx="10.0" cy="40.0" rx="41.6" ry="19.2" fill="url(#puffDark)"></ellipse><ellipse cx="-18.8" cy="46.4" rx="28.8" ry="14.4" fill="url(#puffDark)"></ellipse><ellipse cx="38.8" cy="44.8" rx="32.0" ry="16.0" fill="url(#puffDark)"></ellipse><ellipse cx="0.4" cy="27.2" rx="25.6" ry="17.6" fill="url(#puffDark)"></ellipse><ellipse cx="26.0" cy="30.4" rx="24.0" ry="16.0" fill="url(#puffDark)"></ellipse><ellipse cx="58.0" cy="49.6" rx="22.4" ry="11.2" fill="url(#puffDark)"></ellipse><ellipse cx="-41.2" cy="52.8" rx="19.2" ry="9.6" fill="url(#puffDark)"></ellipse></g></g>
 
             <g class="wx birds">
-                <g class="bird b1"><path d="M120 60 q4 -4 8 0 q4 -4 8 0"></path></g>
-                <g class="bird b2"><path d="M100 78 q3 -3 6 0 q3 -3 6 0"></path></g>
-                <g class="bird b3"><path d="M140 48 q2.6 -2.6 5.2 0 q2.6 -2.6 5.2 0"></path></g>
+                <g class="bird b1"><g class="bob"><g transform="translate(120 58) scale(0.62)"><path class="wing" d="M0 0 C-2.5 -2.6 -6 -3.4 -10 -1.2 C-6.4 -1.6 -3.4 -.6 -.9 1.4 L0 2.2 L.9 1.4 C3.4 -.6 6.4 -1.6 10 -1.2 C6 -3.4 2.5 -2.6 0 0 Z"></path></g></g></g>
+                <g class="bird b2"><g class="bob"><g transform="translate(104 70) scale(0.5)"><path class="wing" d="M0 0 C-2.5 -2.6 -6 -3.4 -10 -1.2 C-6.4 -1.6 -3.4 -.6 -.9 1.4 L0 2.2 L.9 1.4 C3.4 -.6 6.4 -1.6 10 -1.2 C6 -3.4 2.5 -2.6 0 0 Z"></path></g></g></g>
+                <g class="bird b3"><g class="bob"><g transform="translate(150 44) scale(0.42)"><path class="wing" d="M0 0 C-2.5 -2.6 -6 -3.4 -10 -1.2 C-6.4 -1.6 -3.4 -.6 -.9 1.4 L0 2.2 L.9 1.4 C3.4 -.6 6.4 -1.6 10 -1.2 C6 -3.4 2.5 -2.6 0 0 Z"></path></g></g></g>
+                <g class="bird b4"><g class="bob"><g transform="translate(90 52) scale(0.36)"><path class="wing" d="M0 0 C-2.5 -2.6 -6 -3.4 -10 -1.2 C-6.4 -1.6 -3.4 -.6 -.9 1.4 L0 2.2 L.9 1.4 C3.4 -.6 6.4 -1.6 10 -1.2 C6 -3.4 2.5 -2.6 0 0 Z"></path></g></g></g>
             </g>
         </svg>
     </div>
@@ -317,56 +344,105 @@
         <svg id="scene" viewBox="0 0 400 140" preserveAspectRatio="xMinYMax meet">
             <defs>
                 <linearGradient id="dimGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#081226" stop-opacity="0"></stop><stop offset=".45" stop-color="#081226"></stop></linearGradient>
-                <linearGradient id="wallGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e9dcc8"></stop><stop offset="1" stop-color="#d8c7ae"></stop></linearGradient>
-                <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cfe8ff"></stop><stop offset=".5" stop-color="#8fb9e0"></stop><stop offset="1" stop-color="#5f86ad"></stop></linearGradient>
-                <linearGradient id="doorGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8fb4d6"></stop><stop offset="1" stop-color="#6a8fb3"></stop></linearGradient>
-                <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc25b"></stop><stop offset="1" stop-color="#4f9440"></stop></linearGradient>
+                <linearGradient id="wallGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f5f3ef"></stop><stop offset="1" stop-color="#dedad3"></stop></linearGradient>
+                <linearGradient id="woodGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c39467"></stop><stop offset="1" stop-color="#a5764c"></stop></linearGradient>
+                <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d6ecfb"></stop><stop offset=".5" stop-color="#8db6d8"></stop><stop offset="1" stop-color="#557a9e"></stop></linearGradient>
+                <linearGradient id="doorGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#bcdaf2" stop-opacity=".95"></stop><stop offset=".55" stop-color="#7fa7cb" stop-opacity=".9"></stop><stop offset="1" stop-color="#4f7397" stop-opacity=".95"></stop></linearGradient>
+                <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#86c463"></stop><stop offset="1" stop-color="#4a8a3c"></stop></linearGradient>
+                <linearGradient id="deckGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c7b49c"></stop><stop offset="1" stop-color="#a8957d"></stop></linearGradient>
+                <radialGradient id="boxGrad" cx=".38" cy=".32"><stop offset="0" stop-color="#7cbf5c"></stop><stop offset="1" stop-color="#3e7c34"></stop></radialGradient>
+                <radialGradient id="crownGrad" cx=".4" cy=".3"><stop offset="0" stop-color="#8ccc63"></stop><stop offset=".7" stop-color="#4e9440"></stop><stop offset="1" stop-color="#3b7632"></stop></radialGradient>
+                <linearGradient id="cypGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4f8f44"></stop><stop offset="1" stop-color="#2f6229"></stop></linearGradient>
+                <radialGradient id="lampGlow"><stop offset="0" stop-color="#ffe2a0" stop-opacity=".95"></stop><stop offset=".35" stop-color="#ffcf73" stop-opacity=".35"></stop><stop offset="1" stop-color="#ffcf73" stop-opacity="0"></stop></radialGradient>
                 <pattern id="stripes" width="16" height="10" patternUnits="userSpaceOnUse">
                     <rect width="8" height="10" style="fill: var(--canvas-a)"></rect>
                     <rect x="8" width="8" height="10" style="fill: var(--canvas-b)"></rect>
                 </pattern>
             </defs>
 
-            <!-- Boden -->
+            <!-- Rasen mit Mähstreifen -->
             <rect class="grass" x="-1400" y="116" width="2800" height="24"></rect>
-            <path class="terrace" d="M90 118 H330 L340 128 H90 Z"></path>
-            <path class="terrace-line" d="M130 118 l3 10 M170 118 l3 10 M210 118 l3 10 M250 118 l3 10 M290 118 l3 10"></path>
-            <path class="shade" d="M92 118 H300 L314 128 H92 Z"></path>
+            <path class="mow" d="M-1400 116 H1400 V119 H-1400 Z M-1400 124 H1400 V127 H-1400 Z M-1400 132 H1400 V135 H-1400 Z"></path>
 
-            <!-- Haus mit Fenster und Terrassentür -->
-            <rect class="wall" x="0" y="6" width="92" height="114"></rect>
-            <path class="siding" d="M0 26 H92 M0 46 H92 M0 66 H92 M0 86 H92 M0 106 H92"></path>
-            <rect class="window-frame" x="14" y="28" width="34" height="30" rx="1.5"></rect>
-            <rect class="window-glass" x="17" y="31" width="13" height="24"></rect>
-            <rect class="window-glass" x="32" y="31" width="13" height="24"></rect>
-            <rect class="door-frame" x="56" y="64" width="28" height="54" rx="1"></rect>
-            <rect class="door-inside" x="58" y="66" width="24" height="52"></rect>
-            <rect class="door-leaf" x="58" y="66" width="24" height="52" rx="1"></rect>
+            <!-- Holzterrasse (WPC-Dielen) -->
+            <path class="terrace" d="M88 117 H330 L341 127 H88 Z"></path>
+            <path class="terrace-line" d="M88 120.3 H333.6 M88 123.6 H337.2"></path>
+            <path class="terrace-edge" d="M88 127 H341 V129 H88 Z"></path>
+            <path class="shade" d="M92 117 H300 L314 127 H92 Z"></path>
 
-            <!-- Gartenmöbel und Pflanze -->
-            <g class="furniture">
+            <!-- Modernes Flachdachhaus: weißer Putz, Holzverkleidung, große Glasflächen -->
+            <rect class="wall" x="0" y="12" width="92" height="106"></rect>
+            <rect class="cladding" x="0" y="12" width="22" height="106"></rect>
+            <path class="slats" d="M3.5 12 V118 M7 12 V118 M10.5 12 V118 M14 12 V118 M17.5 12 V118"></path>
+            <rect class="roof" x="-4" y="5" width="100" height="8" rx=".8"></rect>
+            <rect class="roof-edge" x="-4" y="12" width="100" height="1.4"></rect>
+            <rect class="plinth" x="0" y="113" width="92" height="5"></rect>
+
+            <!-- Fensterband im Obergeschoss -->
+            <rect class="alu" x="28" y="24" width="56" height="26" rx=".6"></rect>
+            <rect class="window-glass" x="30" y="26" width="25" height="22"></rect>
+            <rect class="window-glass" x="57" y="26" width="25" height="22"></rect>
+            <path class="glass-shine" d="M30 26 h9 l-9 14 z M57 26 h9 l-9 14 z"></path>
+
+            <!-- Schiebetür zur Terrasse -->
+            <rect class="alu" x="50" y="60" width="38" height="54" rx=".6"></rect>
+            <rect class="door-inside" x="52" y="62" width="34" height="51"></rect>
+            <rect class="door-light" x="52" y="62" width="34" height="51"></rect>
+            <rect class="door-fixed" x="69" y="62" width="17" height="51"></rect>
+            <rect class="door-leaf" x="52.8" y="62.8" width="16.4" height="49.4"></rect>
+            <path class="glass-shine" d="M69 62 h6 l-6 10 z"></path>
+
+            <!-- Wandleuchte -->
+            <rect class="wall-lamp" x="40.5" y="74" width="3" height="8" rx="1"></rect>
+
+            <!-- Lounge unter der Markise -->
+            <g class="lounge">
+                <!-- Sessel links -->
+                <rect class="frame" x="150" y="99" width="3" height="19" rx="1"></rect>
+                <rect class="frame" x="150" y="109" width="24" height="2.4" rx="1"></rect>
+                <rect class="frame" x="171" y="111" width="2.4" height="7"></rect>
+                <rect class="cushion" x="153" y="104" width="20" height="5.6" rx="2.6"></rect>
+                <rect class="cushion" x="152.5" y="96.5" width="5" height="12" rx="2.4"></rect>
+                <rect class="pillow" x="157" y="99" width="6" height="5.4" rx="2"></rect>
                 <!-- Tisch -->
-                <rect x="174" y="103" width="44" height="3.2" rx="1.6"></rect>
-                <rect x="179" y="106" width="2.4" height="12"></rect><rect x="210.6" y="106" width="2.4" height="12"></rect>
-                <!-- Stühle -->
-                <rect x="156" y="96" width="2.4" height="22" rx="1"></rect><rect x="156" y="108" width="12" height="2.6" rx="1"></rect><rect x="165.6" y="110" width="2.4" height="8"></rect>
-                <rect x="233.6" y="96" width="2.4" height="22" rx="1"></rect><rect x="224" y="108" width="12" height="2.6" rx="1"></rect><rect x="224" y="110" width="2.4" height="8"></rect>
-                <!-- Sonnenglas auf dem Tisch -->
-                <rect x="194" y="98" width="4" height="5" rx="1" fill="#9fd2fb" opacity=".8"></rect>
+                <rect class="wood" x="184" y="104" width="30" height="3" rx="1.2"></rect>
+                <rect class="frame" x="187" y="107" width="2.2" height="11"></rect>
+                <rect class="frame" x="208.8" y="107" width="2.2" height="11"></rect>
+                <rect x="196" y="99" width="4" height="5" rx="1" fill="#9fd2fb" opacity=".85"></rect>
+                <circle cx="204" cy="102.5" r="1.6" fill="#f28fb1"></circle>
+                <!-- Sessel rechts -->
+                <rect class="frame" x="245" y="99" width="3" height="19" rx="1"></rect>
+                <rect class="frame" x="224" y="109" width="24" height="2.4" rx="1"></rect>
+                <rect class="frame" x="224.6" y="111" width="2.4" height="7"></rect>
+                <rect class="cushion" x="225" y="104" width="20" height="5.6" rx="2.6"></rect>
+                <rect class="cushion" x="240.5" y="96.5" width="5" height="12" rx="2.4"></rect>
+                <rect class="pillow" x="235" y="99" width="6" height="5.4" rx="2"></rect>
             </g>
-            <g transform="translate(-86 0)"><path class="plant-pot" d="M344 106 h18 l-3 14 h-12 z"></path>
-            <path class="plant" d="M353 106 c-10 -6 -12 -18 -4 -24 c2 8 4 14 4 24 c0 -12 4 -22 12 -26 c4 8 -2 20 -12 26 z"></path>
-            <circle class="flower" cx="349" cy="84" r="2.4"></circle><circle class="flower" cx="363" cy="82" r="2.2"></circle></g>
 
-            <!-- Mehr Garten für breite Kacheln -->
+            <!-- Pflanzkübel mit Ziergras -->
+            <rect class="planter" x="268" y="104" width="16" height="14" rx="1"></rect>
+            <path class="blades" d="M276 104 C275 96 271 90 266 86 M276 104 C276 95 277 88 279 82 M276 104 C277 97 281 92 286 89"></path>
+            <path class="blades alt" d="M275 104 C273 98 269 94 263 93 M277 104 C279 98 283 95 289 95 M276 104 C275 96 274 91 272 86"></path>
+
+            <!-- Buchskugel und Gartenleuchte am Terrassenrand -->
+            <circle class="box" cx="354" cy="112" r="7"></circle>
+            <rect class="wall-lamp" x="370.6" y="102" width="2.8" height="16" rx="1"></rect>
+
+            <!-- Mehr Garten für breite Kacheln: Lamellenzaun, Bäume, Beete -->
             <g class="garden-far">
-                <path d="M410 104 v14 M424 104 v14 M438 104 v14 M452 104 v14 M466 104 v14 M480 104 v14 M494 104 v14 M508 104 v14 M522 104 v14 M536 104 v14 M550 104 v14 M564 104 v14 M578 104 v14 M592 104 v14 M606 104 v14" stroke="#e8e2d6" stroke-width="5" stroke-linecap="round"></path>
-                <path d="M404 108 H612 M404 114 H612" stroke="#e8e2d6" stroke-width="2.4"></path>
-                <rect x="650" y="84" width="7" height="34" rx="2" fill="#7a5638"></rect>
-                <circle cx="653" cy="70" r="24" fill="#4f9a45"></circle><circle cx="636" cy="80" r="15" fill="#5aab4e"></circle><circle cx="671" cy="80" r="16" fill="#468c3d"></circle>
-                <circle cx="700" cy="114" r="9" fill="#5aab4e"></circle><circle cx="714" cy="112" r="11" fill="#4f9a45"></circle><circle cx="730" cy="115" r="8" fill="#5aab4e"></circle>
-                <circle cx="760" cy="106" r="2.2" fill="#f28fb1"></circle><circle cx="770" cy="109" r="2" fill="#ffd166"></circle><circle cx="781" cy="105" r="2.2" fill="#f28fb1"></circle>
-                <path d="M760 106 v12 M770 109 v9 M781 105 v13" stroke="#4f9a45" stroke-width="1.4"></path>
+                <path class="fence-slat" d="M404 96 H610 V99 H404 Z M404 101 H610 V104 H404 Z M404 106 H610 V109 H404 Z M404 111 H610 V114 H404 Z"></path>
+                <path class="fence-post" d="M404 94 h3 v24 h-3 z M472 94 h3 v24 h-3 z M540 94 h3 v24 h-3 z M607 94 h3 v24 h-3 z"></path>
+                <ellipse class="cypress" cx="430" cy="92" rx="6" ry="20"></ellipse>
+                <ellipse class="cypress" cx="586" cy="94" rx="5.5" ry="17"></ellipse>
+                <rect class="tree-trunk" x="650" y="82" width="5" height="36" rx="1.5"></rect>
+                <circle class="tree-crown" cx="652.5" cy="68" r="22"></circle>
+                <circle class="tree-crown" cx="637" cy="78" r="13"></circle>
+                <circle class="tree-crown" cx="668" cy="77" r="14"></circle>
+                <circle class="box" cx="700" cy="112" r="7"></circle>
+                <circle class="box" cx="716" cy="110" r="9"></circle>
+                <circle class="box" cx="732" cy="113" r="6"></circle>
+                <path class="lavender" d="M752 118 c0 -6 1 -10 2 -12 c1 2 2 6 2 12 z M760 118 c0 -7 1 -11 2 -13 c1 2 2 6 2 13 z M768 118 c0 -6 1 -10 2 -12 c1 2 2 6 2 12 z M776 118 c0 -7 1 -11 2 -13 c1 2 2 6 2 13 z"></path>
+                <path d="M751 118 h28" stroke="#5f8f4a" stroke-width="2.4"></path>
             </g>
 
             <!-- Markise: wird von der Wand aus aufgezogen -->
@@ -384,8 +460,10 @@
 
             <!-- Abdunkeln bei Nacht und Unwetter, leuchtendes Fenster -->
             <rect class="dimmer" x="-1400" width="2800" height="140" fill="url(#dimGrad)"></rect>
-            <rect class="window-glow" x="17" y="31" width="13" height="24"></rect>
-            <rect class="window-glow" x="32" y="31" width="13" height="24"></rect>
+            <rect class="window-glow" x="30" y="26" width="25" height="22"></rect>
+            <rect class="window-glow" x="57" y="26" width="25" height="22"></rect>
+            <circle class="lamp-glow" cx="42" cy="78" r="14"></circle>
+            <circle class="lamp-glow" cx="372" cy="104" r="13"></circle>
 
 
         </svg>
