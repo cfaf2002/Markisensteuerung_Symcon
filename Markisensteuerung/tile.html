@@ -257,9 +257,11 @@
 
     /* ---------- Ruhe ---------- */
     #tile.paused *, #tile.reduce * { animation-play-state: paused !important; }
-    #tile.reduce .canvas-g { transition: none; }
+    /* „Animationen reduzieren“ hält nur die Deko an (Wolken, Vögel, Regen …).
+       Das Aus- und Einfahren ist eine Information und läuft immer in der Fahrzeit – Tuch und Schatten gemeinsam. */
     @media (prefers-reduced-motion: reduce) {
-        #tile * { animation: none !important; transition: none !important; }
+        #tile * { animation: none !important; }
+        #tile .sky, #tile .wx, #tile .dimmer, #tile .window-glow { transition: none !important; }
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
