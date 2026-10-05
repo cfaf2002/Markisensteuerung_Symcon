@@ -2,14 +2,17 @@
 
 [![IP-Symcon ab 8.2](https://img.shields.io/badge/IP--Symcon-ab_8.2-0b6fb3.svg)](https://www.symcon.de)
 [![Optimiert für Symcon 9.0](https://img.shields.io/badge/optimiert_f%C3%BCr-Symcon_9.0-0b6fb3.svg)](https://www.symcon.de/de/service/dokumentation/installation/migrationen/v81-v90-q1-2026/)
-![Modul-Version 1.1](https://img.shields.io/badge/Modul--Version-1.1-informational.svg)
+![Modul-Version 1.2](https://img.shields.io/badge/Modul--Version-1.2-informational.svg)
 [![Tests](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml/badge.svg)](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml)
 ![Sprachen: Deutsch, Englisch](https://img.shields.io/badge/Sprachen-Deutsch_%7C_Englisch-blueviolet.svg)
 ![PHP 8.5](https://img.shields.io/badge/PHP-8.5-777bb4.svg?logo=php&logoColor=white)
 [![SDK: IPSModuleStrict](https://img.shields.io/badge/SDK-IPSModuleStrict-success.svg)](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/module/)
 [![Darstellungen statt Profile](https://img.shields.io/badge/Variablen-Darstellungen-success.svg)](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/darstellungen/)
 [![Kachel-Visualisierung: HTML-SDK](https://img.shields.io/badge/Kachel--Visualisierung-HTML--SDK-orange.svg)](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/html-sdk/)
-![Sicherheit zuerst](https://img.shields.io/badge/Sicherheit-Wind_%7C_Regen_%7C_Frost_%7C_Sensorausfall-red.svg)
+![Sicherheit zuerst](https://img.shields.io/badge/Sicherheit-Wind_%7C_B%C3%B6en--Trend_%7C_Regen_%7C_Frost_%7C_Sensorausfall-red.svg)
+[![DWD-Unwetterwarnung](https://img.shields.io/badge/DWD-Unwetterwarnung-darkred.svg)](https://github.com/Wilkware/IPSymconWeatherWarning)
+![Abendmodus](https://img.shields.io/badge/Abendmodus-Halten_%2B_Terrassent%C3%BCr-6366f1.svg)
+![Umstieg](https://img.shields.io/badge/Umstieg-Skript_per_Knopfdruck_%C3%BCbernehmen-blue.svg)
 ![Simulation](https://img.shields.io/badge/Simulation-Testbetrieb_ohne_Fahrt-yellow.svg)
 ![Ohne Cloud](https://img.shields.io/badge/Cloud-nicht_n%C3%B6tig-brightgreen.svg)
 [![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-green.svg)](LICENSE)
@@ -53,6 +56,12 @@ Autor: Armin Frohwerk · Lizenz: MIT
 - **Push-Nachricht** bei Sicherheitsalarm (einmal pro Alarm) und optional bei jeder automatischen Fahrt
 - **Grenzwerte und Wochentage in der Visualisierung einstellbar**, auf Wunsch
 - **Simulation (Testbetrieb):** Das Modul entscheidet wie gewohnt, bewegt die Markise aber nicht. Sensorwerte und Uhrzeit lassen sich vorgeben, jede Entscheidung landet im Protokoll. Der echte Wind- und Regenschutz bleibt dabei auf Wunsch aktiv
+- **Halten (Abendmodus):** Ein Schalter hält die Markise, wie sie ist, etwa um abends draußen zu sitzen. Nur Sicherheit fährt dann noch ein. Halten endet von selbst, wenn die Terrassentür geschlossen wird, die Karenz abgelaufen ist oder spätestens am nächsten Morgen
+- **DWD-Unwetterwarnung:** Mit dem Modul „Unwetterwarnung“ von Wilkware fährt die Markise bei amtlichen Warnungen ab einer einstellbaren Stufe ein, meist schon bevor das Gewitter da ist. Die Warnstufe wird automatisch gefunden. Hitze- und UV-Warnungen zählen nicht, und fällt die Warnquelle aus, wird nichts blockiert
+- **Böen-Trend:** Steigen die Böen schnell an, fährt die Markise vorsorglich ein, bevor der Böenalarm erreicht ist
+- **Lux-Mittelwert und Schaltlimit:** Die Helligkeit wird über einige Minuten gemittelt, und die Sonnenautomatik fährt höchstens X-mal pro Stunde. Bei Aprilwetter bleibt die Markise ruhig
+- **Standort:** aus dem Location-Modul oder eigene Koordinaten in der Instanz, per Taste aus dem Location-Modul übernehmbar
+- **Übernahme aus dem bisherigen Skript:** Variablen-IDs, Grenzwerte und Wochentage per Knopfdruck einlesen. Das Skript wird nur gelesen, nie ausgeführt
 - **Eigene Kachel** im Symcon-Design mit gezeichneter Markise, Wetter, Begründung, Countdown, Sensorliste und Tasten
 - Deutsch und Englisch nach Symcon-Konvention: englische Texte im Modul, deutsche Übersetzung in `locale.json`
 - Automatische Tests mit GitHub-Workflow
@@ -62,7 +71,8 @@ Autor: Armin Frohwerk · Lizenz: MIT
 - IP-Symcon ab Version 8.2, empfohlen 9.0
 - Aktorvariablen mit Aktion (z. B. vom Somfy-, Shelly-, Homematic- oder KNX-Modul)
 - Optional: Sensoren für Helligkeit, Außentemperatur, Wind, Böen, Regen und eine Anwesenheitsvariable
-- Für Tag/Nacht und Sonnenrichtung den Standort unter **Kern Instanzen → Location**
+- Für Tag/Nacht und Sonnenrichtung den Standort unter **Kern Instanzen → Location** oder eigene Koordinaten in der Instanz
+- Optional für Unwetterwarnungen das Modul [Unwetterwarnung](https://github.com/Wilkware/IPSymconWeatherWarning) von Wilkware mit eingeschalteter „Indikatorvariable für aktive Warnungen“
 - Für Push-Nachrichten ein gültiges Symcon-Abo und registrierte Geräte
 
 Das Modul nutzt die aktuelle Symcon-Technik:
@@ -92,13 +102,14 @@ Bei jeder Sensoränderung und zusätzlich einmal pro Minute geht das Modul diese
 
 | Rang | Regel | Ergebnis |
 |---|---|---|
-| 1 | Windalarm, Böenalarm, Windsensor ohne Werte, Regen, Frost, Helligkeitssensor eingefroren, Wind- oder Regensperre läuft | einfahren (auch bei Automatik aus, wenn eingestellt) |
+| 1 | Windalarm, Böenalarm, Böen steigen schnell, Unwetterwarnung, Windsensor ohne Werte, Regen, Frost, Helligkeitssensor eingefroren, Wind- oder Regensperre läuft | einfahren (auch bei Automatik aus, wenn eingestellt) |
 | 2 | Automatik aus | nichts tun |
 | 3 | Handbetrieb-Pause läuft | nichts tun |
+| 3a | Halten (Abendmodus) ist an | nichts tun |
 | 4 | Heute nicht freigegeben | einfahren |
 | 5 | Nacht (Sonne unter der eingestellten Höhe) | einfahren |
 | 6 | Außerhalb des Zeitfensters | einfahren |
-| 7 | Sonnenautomatik: hell genug, warm genug, Wind unter der Grenze, Sonne auf der Markise, und das für die Ausfahrverzögerung | ausfahren |
+| 7 | Sonnenautomatik: hell genug (Mittelwert), warm genug, Wind unter der Grenze, Sonne auf der Markise, und das für die Ausfahrverzögerung, Schaltlimit nicht erreicht | ausfahren |
 |   | zu dunkel, zu kalt oder Sonne weg, und das für die Einfahrverzögerung | einfahren |
 |   | Wind über der normalen Grenze | sofort einfahren |
 | 8 | Abwesend: während der Karenz nicht ausfahren, nach der Karenz | einfahren |
@@ -121,7 +132,7 @@ Ganz oben in der Instanz. Ausgeschaltet macht die Instanz gar nichts mehr: keine
 
 ### Sensoren
 
-Helligkeit (lx), Außentemperatur (°C), Windgeschwindigkeit und Böen jeweils mit Einheit (Bft, km/h, m/s), Regen (an oder Wert über 0), Anwesenheit (an = jemand zu Hause). Alle optional.
+Helligkeit (lx), Außentemperatur (°C), Windgeschwindigkeit und Böen jeweils mit Einheit (Bft, km/h, m/s), Regen (an oder Wert über 0), Anwesenheit (an = jemand zu Hause). Alle optional. Die Terrassentür wird unter „Halten (Abendmodus)“ eingestellt.
 
 ### Sicherheit
 
@@ -134,6 +145,8 @@ Helligkeit (lx), Außentemperatur (°C), Windgeschwindigkeit und Böen jeweils m
 | Frostschutz | an, ≤ 3 °C | Bei Frost wird eingefahren und auch von Hand nicht ausgefahren |
 | Windsensor liefert keine Werte | 120 min | Meldet weder Wind- noch Böensensor in dieser Zeit einen Wert, wird eingefahren (0 = aus) |
 | Helligkeitssensor eingefroren | 30 min, 1 lx | Ändert sich die Helligkeit tagsüber so lange um weniger als den Mindestwert, gilt der Sensor als eingefroren (0 = aus). Nachts wird nicht geprüft |
+| Böen-Trend | an, 12 in 15 min, ab 70 % | Steigen die Böen im Zeitfenster um mindestens den Anstieg und liegen schon beim eingestellten Anteil des Böenalarms, wird vorsorglich eingefahren, mit Windsperre. Der Anstieg gilt in der Einheit des Böensensors |
+| Unwetterwarnung | aus | Fährt bei Warnstufe ab „Einfahren ab Stufe“ (Standard 2 = markantes Wetter) ein, solange die Warnung gilt. Warnstufe leer = automatisch die erste Instanz des Moduls „Unwetterwarnung“ nehmen; „Warnstufe suchen“ trägt sie ins Feld ein. Stufen ab 10 (Hitze, UV) zählen nicht |
 | Sicherheit auch bei ausgeschalteter Automatik | an | |
 
 ### Sonnenautomatik
@@ -146,8 +159,14 @@ Helligkeit (lx), Außentemperatur (°C), Windgeschwindigkeit und Böen jeweils m
 | Einfahren nach keiner Sonne seit | 15 min | |
 | Mindesttemperatur | 18 °C | Eingefahren wird erst unter Mindesttemperatur minus Hysterese |
 | Temperatur-Hysterese | 1 K | |
+| Helligkeit mitteln über | 10 min | Gleitender Mittelwert für Aus- und Einfahren; kurze Wolken oder Sonnenlücken lösen nichts aus (0 = aus). Der eingefrorene Sensor wird mit dem echten Wert geprüft |
+| Höchstens Sonnen-Fahrten pro Stunde | 4 | Danach bleibt die Markise, wie sie ist, bis die Stunde um ist. Sicherheit, Nacht, Wochentag und Abwesenheit sind nie begrenzt (0 = unbegrenzt) |
 | Einfahren über Wind | 4 | Normale Windgrenze ohne Alarm und ohne Sperre |
 | Nur wenn die Sonne auf die Markise scheint | aus | Richtung von/bis (Azimut, 0° = Nord, 90° = Ost, 180° = Süd, 270° = West; über Nord wie 300° bis 60° geht auch) und Mindesthöhe. Unten im Formular steht der aktuelle Sonnenstand zum Einstellen |
+
+### Standort
+
+Breiten- und Längengrad für Tag/Nacht und Sonnenrichtung. Stehen beide auf 0, nimmt das Modul den Standort aus **Kern Instanzen → Location**. Die Taste „Aus dem Location-Modul übernehmen“ trägt diesen Standort in die Felder ein; danach lässt er sich frei anpassen. Unter den Feldern steht, welcher Standort gerade verwendet wird.
 
 ### Zeiten
 
@@ -165,6 +184,16 @@ Helligkeit (lx), Außentemperatur (°C), Windgeschwindigkeit und Böen jeweils m
 | Karenz nach dem Verlassen | 30 min | |
 | Automatik nach Handbetrieb pausieren | 60 min | 0 = keine Pause |
 | Bedienung von außen erkennen | an | Änderungen an den Aktorvariablen, die nicht vom Modul kommen, zählen als Handbetrieb. Bei Tastervariablen zählt nur das Auslösen, bei Positionen nur eine echte Änderung |
+
+### Halten (Abendmodus)
+
+| Einstellung | Standard | Beschreibung |
+|---|---|---|
+| Schalter „Halten (Abendmodus)“ anbieten | an | Legt die Variable „Halten“ an und zeigt die Taste in der Kachel |
+| Terrassentür | – | Optional. Wird die Tür geschlossen (Wechsel von offen auf zu), endet Halten. Wer Halten bei schon geschlossener Tür einschaltet, beendet es erst mit dem nächsten Schließen |
+| Wert für „geschlossen“ | 0 | z. B. 0 bei Homematic-Kontakten (0 zu, 1 gekippt, 2 offen) oder bei Boolean-Kontakten (aus = zu) |
+
+Halten endet außerdem, wenn die Abwesenheits-Karenz abgelaufen ist, und spätestens am nächsten Morgen, sobald es hell ist.
 
 ### Benachrichtigungen und Anzeige
 
@@ -189,7 +218,8 @@ Die Kachel zeigt die Markise an einer Hauswand, aufgerollt oder ausgefahren, und
 - **Begründung** der letzten Entscheidung
 - **Countdown** für Wind-/Regensperre, Handbetrieb-Pause oder Karenz, mit „Automatik fortsetzen“, „Karenz neu starten“ und „Karenz beenden“
 - **Sensorliste** mit Wert, Grenze und Ampelpunkt (ab ca. 260 × 340 Pixel)
-- **Tasten** Einfahren, Stopp (nur wenn vorhanden), Ausfahren. Bei Sicherheitsalarm ist Ausfahren gesperrt
+- **Tasten** Einfahren, Stopp (nur wenn vorhanden), Ausfahren und Halten (Mond-Symbol, leuchtet wenn aktiv). Bei Sicherheitsalarm ist Ausfahren gesperrt
+- **Sensorliste** zusätzlich mit Unwetter-Warnstufe und Terrassentür, bei der Helligkeit auch der Mittelwert, wenn er vom aktuellen Wert abweicht
 - Kleine Kacheln zeigen nur Status und Tasten
 
 Farbschemas: **Symcon-Design** übernimmt Schrift- und Akzentfarbe der gewählten Visualisierung (das Markisentuch ist in der Akzentfarbe gestreift), **Dunkel** und **Hell** sind feste Schemas. Ist die Kachel nicht zu sehen, ruhen Animationen und Countdown. Die Systemeinstellung „Bewegung reduzieren“ wird beachtet.
@@ -199,6 +229,7 @@ Farbschemas: **Symcon-Design** übernimmt Schrift- und Akzentfarbe der gewählte
 | Ident | Name | Typ | Darstellung | Bedingung |
 |---|---|---|---|---|
 | Automatic | Automatik | Boolean | Schalter, bedienbar | immer |
+| Hold | Halten (Abendmodus) | Boolean | Schalter, bedienbar | Halten angeboten |
 | Control | Markise | Integer | Aufzählung mit Tasten: 0 Einfahren, 1 Stopp, 2 Ausfahren | immer |
 | Position | Position | Integer | Schieberegler 0–100 %, bedienbar | Positionsvariable |
 | State | Zustand | Integer | 0 eingefahren, 1 fährt ein, 2 fährt aus, 3 ausgefahren, 4 gestoppt | immer |
@@ -210,7 +241,7 @@ Farbschemas: **Symcon-Design** übernimmt Schrift- und Akzentfarbe der gewählte
 | SetLuxOn, SetTempMin, SetWindMax, SetWindAlarm, SetGustAlarm | Grenzwerte | Integer/Float | Schieberegler | Einstellungen in der Visualisierung |
 | SetDayCheck, SetWeekday1 … SetWeekday7 | Tag/Nacht-Prüfung, Montag … Sonntag | Boolean | Schalter | Einstellungen in der Visualisierung |
 
-**Status:** 0 Automatik aus, 1 Wartet auf Sonne, 2 Sonnenschutz aktiv, 3 Handbetrieb, 4 Abwesend – Karenz, 5 Abwesend, 6 Tag nicht freigegeben, 7 Nacht, 8 Außerhalb des Zeitfensters, 9 Windalarm, 10 Regen, 11 Frost, 12 Sensorfehler
+**Status:** 0 Automatik aus, 1 Wartet auf Sonne, 2 Sonnenschutz aktiv, 3 Handbetrieb, 4 Abwesend – Karenz, 5 Abwesend, 6 Tag nicht freigegeben, 7 Nacht, 8 Außerhalb des Zeitfensters, 9 Windalarm, 10 Regen, 11 Frost, 12 Sensorfehler, 13 Halten (Abendmodus), 14 Unwetterwarnung
 
 Änderungen an den Einstellvariablen landen direkt in den Eigenschaften der Instanz. Es gibt also nur eine Stelle, an der ein Grenzwert steht.
 
@@ -222,6 +253,7 @@ MARKISE_Extend(int $InstanzID): bool        // ausfahren (zählt als Handbetrieb
 MARKISE_Retract(int $InstanzID): bool       // einfahren (zählt als Handbetrieb)
 MARKISE_Stop(int $InstanzID): bool          // anhalten, sofern eine Stopp-Variable eingestellt ist
 MARKISE_SetAutomatic(int $InstanzID, bool $Aktiv): void
+MARKISE_SetHold(int $InstanzID, bool $Aktiv): void   // Halten (Abendmodus) ein/aus
 MARKISE_EndManualPause(int $InstanzID): void
 MARKISE_RestartGrace(int $InstanzID): void  // Abwesenheits-Karenz neu starten
 MARKISE_EndGrace(int $InstanzID): void      // Abwesenheits-Karenz sofort beenden
@@ -250,6 +282,8 @@ Zum Ausprobieren der Grenzwerte, ohne dass die Markise ständig fährt. Einschal
 | SimGust | Simulation – Böen | Schieberegler in der Einheit des Böensensors |
 | SimRain | Simulation – Regen | Schalter |
 | SimPresence | Simulation – jemand zu Hause | Schalter |
+| SimDoor | Simulation – Terrassentür offen | Schalter (nur mit Terrassentür) |
+| SimWarning | Simulation – Unwetter-Warnstufe | Schieberegler 0–4 (nur mit Unwetterwarnung) |
 | SimTime | Simulation – Uhrzeit (HH:MM, leer = jetzt) | Werteingabe, z. B. `21:30` für den Abend oder `17:00` für die Sonnenrichtung |
 | SimLog | Simulation – Protokoll | die letzten 15 Entscheidungen, neueste oben, z. B. „08:49:11 Würde senden: Ausfahren“ |
 
@@ -260,8 +294,8 @@ Die vorgegebene Uhrzeit gilt für Sonnenstand, Tag/Nacht, Zeitfenster und Wochen
 | Einstellung | Standard | Beschreibung |
 |---|---|---|
 | Simulation an | aus | |
-| Verzögerungen und Sperren überspringen | aus | Ausfahr-/Einfahrverzögerung, Wind- und Regensperre sind dann 0 – das Modul reagiert sofort auf jede Änderung |
-| Echter Wind- und Regenschutz bleibt aktiv | an | Die echten Wind-, Böen- und Regensensoren werden weiter überwacht. Bei echtem Alarm fährt die echte Markise wirklich ein (ein Befehl pro Alarm, auf Wunsch wiederholt, mit Push-Nachricht) und das Protokoll vermerkt es |
+| Verzögerungen und Sperren überspringen | aus | Ausfahr-/Einfahrverzögerung, Wind- und Regensperre sind dann 0, Lux-Mittelwert und Schaltlimit ruhen – das Modul reagiert sofort auf jede Änderung |
+| Echter Wind- und Regenschutz bleibt aktiv | an | Die echten Wind-, Böen- und Regensensoren sowie die echte Unwetterwarnung werden weiter überwacht. Bei echtem Alarm fährt die echte Markise wirklich ein (ein Befehl pro Alarm, auf Wunsch wiederholt, mit Push-Nachricht) und das Protokoll vermerkt es |
 | Echte Sensorwerte übernehmen | – | Setzt alle Simulationsvariablen auf die aktuellen echten Werte und die Uhrzeit auf „jetzt“ |
 | Sperren, Pause und Verzögerungen zurücksetzen | – | Für den nächsten Versuch ohne Warten |
 
@@ -269,7 +303,21 @@ Die vorgegebene Uhrzeit gilt für Sonnenstand, Tag/Nacht, Zeitfenster und Wochen
 
 ## 10. Umstieg vom bisherigen Skript
 
-Das Modul übernimmt die Logik des bisherigen Markisen-Skripts samt Debug-Kachel. So werden die alten Variablen zugeordnet:
+### Per Knopfdruck übernehmen
+
+Unten in der Instanz unter **Übernahme aus dem bisherigen Markisenskript** das alte Skript auswählen und **Einstellungen übernehmen** klicken. Das Modul liest daraus
+
+- die Variablen-IDs für Helligkeit, Temperatur, Wind (Bft), Böen (km/h), Regen, Anwesenheit, Terrassentür sowie Aus- und Einfahren,
+- die aktuellen Werte der Vorgabe-Variablen (Lux-Grenze, Mindesttemperatur, maximale Windstärke, Böenalarm, Tag/Nacht-Prüfung, Wochentage),
+- Karenz, Sperrzeiten, Verzögerungen, Mittelwert, Schaltlimit, Böen-Trend, Sonnenrichtung, Standort und Unwetterwarnung.
+
+Verstanden werden beide Fassungen: das ursprüngliche Skript (`$helligkeit = GetValueFloat(…)`, Ein- und Ausfahren werden an der Anzahl der `RequestAction`-Aufrufe erkannt) und die überarbeitete Fassung mit Konstanten (`const ID_HELLIGKEIT = …`). Auskommentierte Zeilen zählen nicht.
+
+Die Werte landen nur im Formular. Erst **Änderungen übernehmen** speichert sie, bis dahin lässt sich alles prüfen und ändern. Danach die Ereignisse des alten Skripts deaktivieren.
+
+### Zuordnung
+
+So werden die alten Variablen zugeordnet:
 
 | Bisher im Skript | Im Modul |
 |---|---|
@@ -285,6 +333,10 @@ Das Modul übernimmt die Logik des bisherigen Markisen-Skripts samt Debug-Kachel
 | Karenz 30 Minuten, „Karenz zurücksetzen“ (55965), „Karenz beenden“ (46238) | Karenz nach dem Verlassen; „Karenz neu starten“ und „Karenz beenden“ in der Kachel oder per Befehl |
 | Helligkeit eingefroren nach 30 Min., Mindeständerung 1 lx | Helligkeitssensor eingefroren, gleiche Standardwerte |
 | Debug-HTML-Variable (25999) | Kachel der Instanz und Variable „Letzte Entscheidung“ |
+| Halten-Schalter (Abendmodus), Terrassentür (59460, 0 = geschlossen) | Halten (Abendmodus) mit Terrassentür |
+| DWD-Warnstufe, Einfahren ab Stufe 2 | Unwetterwarnung |
+| Lux-Mittel 10 min, Schaltlimit 4/h, Böen-Trend 12 km/h in 15 min ab 70 % | gleichnamige Einstellungen, gleiche Standardwerte |
+| Sonnenstand 135° bis 300°, ab 10°, Standort | Sonnenrichtung und Standort |
 | Skript-Timer, ausgelöst durch Ereignisse | entfällt: Das Modul hört selbst auf die Sensoren |
 
 Was sich gegenüber dem Skript verbessert:
@@ -315,11 +367,15 @@ Nach dem Umstieg das alte Skript und seine Ereignisse deaktivieren, damit nicht 
 - Aktorvariablen werden vor jedem Befehl auf Existenz und Aktion geprüft. Fehlschläge werden protokolliert und beim nächsten Durchlauf erneut versucht.
 - Kein `eval`, keine Internetverbindung, keine Zugangsdaten. Die Kommunikation der Kachel ist durch das Passwort der Visualisierung geschützt.
 - Ein Semaphor verhindert, dass Timer und Sensoränderungen gleichzeitig entscheiden und doppelte Befehle schicken.
+- Die Übernahme aus dem Skript liest den Skripttext nur und wertet ihn mit regulären Ausdrücken aus; er wird nie ausgeführt. Skripte über 256 KB werden abgelehnt, jede gefundene ID wird auf Existenz geprüft, und gespeichert wird erst nach Bestätigung im Formular.
+- Fehlt die Warnstufe der Unwetterwarnung, blockiert das nichts. So kann ein ausgefallener Warndienst die Markise nicht dauerhaft einfahren lassen. Der Windschutz über die eigenen Sensoren bleibt davon unberührt.
 
 **Geschwindigkeit**
 
 - Ereignisgesteuert: Das Modul reagiert sofort auf Sensoränderungen (`VM_UPDATE`); der Minutentimer übernimmt nur zeitabhängige Dinge wie Verzögerungen, Sperren und Karenz.
 - Die Entscheidung ist reine Rechnung ohne Netzwerk und dauert Bruchteile einer Millisekunde. Der Sonnenstand wird höchstens einmal pro Minute berechnet.
+- Lux-Mittel, Böen-Trend und Schaltlimit speichern höchstens einen Eintrag pro Minute und höchstens 120 Einträge. Die Verläufe wachsen also im Dauerbetrieb nicht.
+- Die Warnstufe wird nur beim Übernehmen der Einstellungen gesucht, nicht bei jedem Durchlauf.
 - Variablen werden nur geschrieben, wenn sich ihr Wert ändert. Die Kachel bekommt nur dann Daten, wenn sich etwas Sichtbares geändert hat; die Helligkeit wird dafür auf 100 lx gerundet.
 - Die Kachel lädt keine externen Dateien, zeichnet mit SVG und CSS und hält Animationen und Countdown an, solange sie nicht zu sehen ist.
 
@@ -333,15 +389,17 @@ Nach dem Umstieg das alte Skript und seine Ereignisse deaktivieren, damit nicht 
 | `libs/MarkiseTileTrait.php` | Kacheldaten |
 | `libs/MarkiseNotifyTrait.php` | Push-Nachrichten |
 | `libs/MarkiseSimulationTrait.php` | Simulation (Testbetrieb) |
+| `libs/MarkiseExtrasTrait.php` | Halten, Terrassentür, Unwetterwarnung, Böen-Trend, Lux-Mittel, Schaltlimit |
+| `libs/MarkiseImportTrait.php` | Übernahme aus dem bisherigen Skript |
 | `*/locale.json` | deutsche Übersetzung (Symcon-Format, Schlüssel `de`) |
-| `tests/` | Testumgebung ohne Symcon und Testsuite |
+| `tests/` | Testumgebung ohne Symcon und Testsuite; `tests/fixtures/` enthält eine Testkopie des überarbeiteten Skripts |
 
 ```
 php tests/run.php
 php tests/stubs.php <Pfad zu SymconStubs>
 ```
 
-Die Testsuite bildet die Symcon-Basisklasse nach, simuliert Sensoren, Aktoren und eine Uhr und prüft unter anderem Ausfahren ohne Befehlsflut, Verzögerung und Hysterese, Wind-, Böen-, Regen- und Frostschutz mit Sperren, Sensorausfall, eingefrorene Helligkeit (nur tagsüber), Handbetrieb und Erkennung der Fernbedienung, Wochentage, Nacht, Zeitfenster über Mitternacht, Anwesenheit mit Karenz, Sonnenrichtung und Sonnenstand, alle drei Arten der Ansteuerung, Wiederholung fehlgeschlagener Befehle, Benachrichtigungen, Einstellungen aus der Visualisierung, abgelehnte Aktionen, die Simulation (keine echten Befehle, vorgegebene Werte und Uhrzeit, übersprungene Verzögerungen, echter Windschutz, sauberer Wechsel zurück in den echten Betrieb), die Kachel (inklusive Schutz vor eingeschleustem HTML und sparsamer Updates), das Formular und die Vollständigkeit der Übersetzung. Mit `DEBUG=1` werden die Debug-Ausgaben angezeigt.
+Die Testsuite bildet die Symcon-Basisklasse nach, simuliert Sensoren, Aktoren und eine Uhr und prüft unter anderem Ausfahren ohne Befehlsflut, Verzögerung und Hysterese, Wind-, Böen-, Regen- und Frostschutz mit Sperren, Sensorausfall, eingefrorene Helligkeit (nur tagsüber), Handbetrieb und Erkennung der Fernbedienung, Wochentage, Nacht, Zeitfenster über Mitternacht, Anwesenheit mit Karenz, Sonnenrichtung und Sonnenstand, alle drei Arten der Ansteuerung, Wiederholung fehlgeschlagener Befehle, Benachrichtigungen, Einstellungen aus der Visualisierung, abgelehnte Aktionen, die Simulation (keine echten Befehle, vorgegebene Werte und Uhrzeit, übersprungene Verzögerungen, echter Windschutz, sauberer Wechsel zurück in den echten Betrieb), die Kachel (inklusive Schutz vor eingeschleustem HTML und sparsamer Updates), das Formular, die Vollständigkeit der Übersetzung sowie Halten mit Terrassentür, Karenz und neuem Tag, Unwetterwarnung (Suche, Stufen, Hitze, fehlende Quelle), Böen-Trend, Lux-Mittel, Schaltlimit, eigenen Standort und die Übernahme aus beiden Skriptfassungen. Mit `DEBUG=1` werden die Debug-Ausgaben angezeigt.
 
 `tests/stubs.php` lädt die Bibliothek zusätzlich mit den offiziellen [Symcon-Stubs](https://github.com/symcon/SymconStubs), legt eine Instanz an, verbindet Aktor- und Sensorvariablen und prüft, dass der Ausfahrbefehl über die Aktion ankommt.
 
@@ -351,6 +409,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.2 | 7 | 05.10.2026 | Halten (Abendmodus) mit Terrassentür, DWD-Unwetterwarnung, Böen-Trend, Lux-Mittelwert, Schaltlimit, eigener Standort mit Übernahme aus dem Location-Modul, Übernahme der Einstellungen aus dem bisherigen Skript, Simulation für Tür und Warnstufe |
 | 1.1 | 6 | 05.10.2026 | Kachel lässt oben Platz für Titel und Symbole der Kachel-Visualisierung; bei inaktiver Instanz nur noch Hinweis ohne Sensorliste |
 | 1.1 | 5 | 05.10.2026 | Simulation (Testbetrieb) mit Simulationsvariablen, vorgebbarer Uhrzeit, Protokoll und weiter aktivem echtem Wind- und Regenschutz |
 | 1.0 | 4 | 04.10.2026 | Einheit (Bft, km/h, m/s) wird direkt an den Wind- und Böengrenzen angezeigt |

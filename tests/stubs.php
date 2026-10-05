@@ -119,6 +119,23 @@ try {
     IPS_ApplyChanges($id);
     ok(@IPS_GetObjectIDByIdent('SimLux', $id) === false, 'Simulation aus: Variablen entfernt');
 
+    // Version 1.2: Halten, Terrassentür, Übernahme aus dem Skript
+    ok(@IPS_GetObjectIDByIdent('Hold', $id) !== false, 'Variable Hold');
+    $door = variable(1, 2);
+    IPS_SetProperty($id, 'DoorVariableID', $door);
+    IPS_ApplyChanges($id);
+    MARKISE_SetHold($id, true);
+    ok(GetValue(IPS_GetObjectIDByIdent('Hold', $id)) === true, 'MARKISE_SetHold');
+    SetValue($door, 0);
+    MARKISE_Evaluate($id);
+    ok(GetValue(IPS_GetObjectIDByIdent('Hold', $id)) === false, 'Terrassentür zu beendet Halten');
+    $old = IPS_CreateScript(0);
+    IPS_SetScriptContent($old, '<?php $helligkeit = GetValueFloat(' . IPS_GetProperty($id, 'BrightnessVariableID') . '); RequestAction(' . $retract . ', true); RequestAction(' . $retract . ', true); RequestAction(' . $extend . ', true);');
+    ob_start();
+    IPS_RequestAction($id, 'ImportScript', $old);
+    $out = (string) ob_get_clean();
+    ok(str_contains($out, 'settings taken over') || str_contains($out, 'übernommen'), 'Übernahme aus dem Skript');
+
     $tile = MARKISE_GetVisualizationTile($id);
     ok(!str_contains($tile, '/*INITIAL_DATA*/'), 'Kachel mit Startdaten');
     $form = json_decode(IPS_GetConfigurationForm($id), true);

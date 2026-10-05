@@ -48,6 +48,8 @@ trait MarkiseTileTrait
         $data['canStop'] = $this->CanStop();
         $data['hasPosition'] = $this->ReadPropertyInteger('ActuatorMode') === 2;
         $data['automatic'] = (bool) $this->GetValue('Automatic');
+        $data['holdEnabled'] = $this->ReadPropertyBoolean('HoldEnabled') && @$this->GetIDForIdent('Hold') !== false;
+        $data['hold'] = $data['holdEnabled'] && (bool) $this->GetValue('Hold');
         $data['simulation'] = $this->Simulating();
         $data['state'] = (int) $this->GetValue('State');
         $data['position'] = $data['hasPosition'] ? (int) $this->GetValue('Position') : null;
@@ -90,14 +92,20 @@ trait MarkiseTileTrait
         $wu = $this->UnitSuffix($this->ReadPropertyInteger('WindUnit'));
         $gu = $this->UnitSuffix($this->ReadPropertyInteger('GustUnit'));
         if ($c['lux'] !== null) {
+            // auf 100 lx gerundet: weniger Kachel-Updates bei unruhigem Sensor
+            $round = static fn (float $v): float => $v >= 1000 ? round($v, -2) : round($v);
+            $avg = $c['luxAvg'] ?? $c['lux'];
+            $note = $c['luxFrozen'] ? $this->Translate('frozen') : '';
+            if ($note === '' && abs($round($avg) - $round($c['lux'])) >= 100) {
+                $note = '≥ ' . $this->Thousands((float) $this->ReadPropertyInteger('LuxOn')) . ' lx · Ø ' . $this->Thousands($round($avg)) . ' lx';
+            }
             $list[] = [
                 'k'     => 'lux',
                 'label' => $this->Translate('Brightness'),
-                // auf 100 lx gerundet: weniger Kachel-Updates bei unruhigem Sensor
-                'value' => $this->Thousands($c['lux'] >= 1000 ? round($c['lux'], -2) : $c['lux']) . ' lx',
+                'value' => $this->Thousands($round($c['lux'])) . ' lx',
                 'limit' => '≥ ' . $this->Thousands((float) $this->ReadPropertyInteger('LuxOn')) . ' lx',
-                'ok'    => $c['luxFrozen'] ? false : $c['lux'] >= $this->ReadPropertyInteger('LuxOn'),
-                'note'  => $c['luxFrozen'] ? $this->Translate('frozen') : '',
+                'ok'    => $c['luxFrozen'] ? false : $avg >= $this->ReadPropertyInteger('LuxOn'),
+                'note'  => $note,
             ];
         }
         if ($c['temp'] !== null) {
@@ -140,6 +148,29 @@ trait MarkiseTileTrait
                 'note'  => '',
             ];
         }
+        if ($c['warning'] !== null) {
+            $min = $this->ReadPropertyInteger('WarningMinLevel');
+            $active = $c['warning'] >= $min && $c['warning'] < 10;
+            $list[] = [
+                'k'     => 'warning',
+                'label' => $this->Translate('Weather warning'),
+                'value' => $c['warning'] === 0 ? $this->Translate('none') : sprintf($this->Translate('level %d'), $c['warning']),
+                'limit' => sprintf($this->Translate('retract from level %d'), $min),
+                'ok'    => !$active,
+                'note'  => '',
+            ];
+        }
+        $door = $this->DoorClosed();
+        if ($door !== null) {
+            $list[] = [
+                'k'     => 'door',
+                'label' => $this->Translate('Terrace door'),
+                'value' => $door ? $this->Translate('closed') : $this->Translate('open'),
+                'limit' => '',
+                'ok'    => null,
+                'note'  => '',
+            ];
+        }
         return $list;
     }
 
@@ -157,7 +188,7 @@ trait MarkiseTileTrait
     {
         return match ($status) {
             self::ST_SUN => 'ok',
-            self::ST_WIND, self::ST_RAIN, self::ST_FROST, self::ST_SENSOR => 'bad',
+            self::ST_WIND, self::ST_RAIN, self::ST_FROST, self::ST_SENSOR, self::ST_WARNING => 'bad',
             self::ST_OFF, self::ST_WEEKDAY, self::ST_NIGHT, self::ST_TIME => 'off',
             default => 'info',
         };

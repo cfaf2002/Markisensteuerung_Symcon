@@ -88,11 +88,22 @@ trait MarkiseSunTrait
     }
 
     /**
-     * Standort aus Kern Instanzen → Location.
+     * Standort: eigene Koordinaten aus der Instanz, sonst aus Kern Instanzen → Location.
      *
      * @return array{0: float, 1: float}|null
      */
     protected function Location(): ?array
+    {
+        $own = self::ValidLocation($this->ReadPropertyFloat('Latitude'), $this->ReadPropertyFloat('Longitude'));
+        return $own ?? $this->ModuleLocation();
+    }
+
+    /**
+     * Standort aus Kern Instanzen → Location.
+     *
+     * @return array{0: float, 1: float}|null
+     */
+    protected function ModuleLocation(): ?array
     {
         try {
             $ids = IPS_GetInstanceListByModuleID(self::$locationGuid);

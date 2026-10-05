@@ -104,6 +104,10 @@ function markise(array $props = [], string $time = '13:00', array $values = []):
         'PresenceVariableID'    => V_PRESENCE,
         'DelayOn'               => 0,
         'DelayOff'              => 0,
+        // eigene Tests für Mittelwert, Schaltlimit und Böen-Trend
+        'LuxAverageMinutes'     => 0,
+        'MaxMovesPerHour'       => 0,
+        'GustTrend'             => false,
     ];
     foreach (array_merge($defaults, $props) as $k => $v) {
         $m->prop($k, $v);
@@ -806,6 +810,315 @@ test('Simulation: Werte nur in der Simulation und nur für eingestellte Sensoren
     $n = markise(['SimulationMode' => true, 'GustVariableID' => 0]);
     check(!$n->has('SimGust'), 'kein Böensensor: keine Simulationsvariable');
     check(throws(fn () => $n->RequestAction('SimGust', 10)), 'abgelehnt');
+});
+
+// =====================================================================
+// Version 1.2: Halten, Terrassentür, Unwetterwarnung, Böen-Trend, Lux-Mittel, Schaltlimit,
+// eigener Standort und Übernahme aus dem bisherigen Skript
+// =====================================================================
+
+const V_DOOR = 207;
+const V_WARN = 301;
+const UWW_GUID = '{DCDBF64A-F2DC-B23B-2483-69BCAFFE091A}';
+
+test('Halten: Markise bleibt nachts draußen, Sicherheit fährt trotzdem ein', function (): void {
+    $m = markise();
+    check($m->has('Hold') && isset($m->actionsEnabled['Hold']), 'Schalter Halten vorhanden und bedienbar');
+    check(actions() === [V_EXTEND . '=true'], 'ausgefahren');
+    $m->RequestAction('Hold', true);
+    check($m->value('Status') === Markisensteuerung::ST_HOLD, 'Status Halten');
+    $m->sensor(V_LUX, 0.0);
+    $m->advance(60);
+    check(count(Sym::$actions) === 1, 'dunkel: bleibt ausgefahren');
+    Sym::$now = summer('22:30');
+    $m->advance(1);
+    check(count(Sym::$actions) === 1, 'Nacht: bleibt ausgefahren');
+    $m->sensor(V_WIND, 7);
+    check(lastAction() === V_RETRACT . '=true', 'Windalarm fährt trotzdem ein');
+    check($m->value('Hold') === true, 'Halten bleibt eingeschaltet');
+});
+
+test('Halten endet beim Schließen der Terrassentür', function (): void {
+    Sym::variable(V_DOOR, VARIABLETYPE_INTEGER, 2);
+    $m = markise(['DoorVariableID' => V_DOOR, 'DoorClosedValue' => 0]);
+    $m->RequestAction('Hold', true);
+    $m->sensor(V_LUX, 5000.0);
+    check(count(Sym::$actions) === 1 && $m->value('Hold') === true, 'Tür offen: hält');
+    $m->sensor(V_DOOR, 0);
+    check($m->value('Hold') === false, 'Tür zu: Halten aus');
+    check(lastAction() === V_RETRACT . '=true', 'danach entscheidet die Automatik (zu dunkel → ein)');
+});
+
+test('Halten bei geschlossener Tür einschalten: erst das nächste Schließen beendet es', function (): void {
+    Sym::variable(V_DOOR, VARIABLETYPE_INTEGER, 0);
+    $m = markise(['DoorVariableID' => V_DOOR]);
+    $m->RequestAction('Hold', true);
+    $m->advance(5);
+    check($m->value('Hold') === true, 'bleibt an, obwohl die Tür zu ist');
+    $m->sensor(V_DOOR, 2);
+    $m->sensor(V_DOOR, 0);
+    check($m->value('Hold') === false, 'nach Öffnen und Schließen aus');
+});
+
+test('Halten endet bei Abwesenheit und am nächsten Morgen', function (): void {
+    $m = markise(['GraceMinutes' => 30]);
+    $m->RequestAction('Hold', true);
+    $m->sensor(V_PRESENCE, false);
+    $m->advance(29);
+    check($m->value('Hold') === true, 'während der Karenz an');
+    $m->advance(2);
+    check($m->value('Hold') === false, 'nach der Karenz aus');
+
+    $n = markise([], '21:00');
+    $n->RequestAction('Hold', true);
+    Sym::$now = summer('23:59');
+    $n->advance(1);
+    check($n->value('Hold') === true, 'Mitternacht, dunkel: noch an');
+    Sym::$now += 7 * 3600;
+    $n->advance(1);
+    check($n->value('Hold') === false, 'am nächsten Morgen aus');
+});
+
+test('Halten abschaltbar', function (): void {
+    $m = markise(['HoldEnabled' => false]);
+    check(!$m->has('Hold'), 'keine Variable');
+    check(throws(fn () => $m->SetHold(true)), 'Befehl abgelehnt');
+    $tile = json_decode($m->attr('TileData'), true);
+    check($tile['holdEnabled'] === false, 'Kachel ohne Halten-Taste');
+});
+
+test('Unwetterwarnung: automatisch gefunden, ab Stufe 2 einfahren, Hitze ignoriert', function (): void {
+    Sym::$instances[960] = ['module' => UWW_GUID, 'props' => []];
+    Sym::variable(V_WARN, VARIABLETYPE_INTEGER, 0);
+    Sym::$idents[960]['Level'] = V_WARN;
+    $m = markise(['UseWarning' => true]);
+    check($m->attr('WarningVar') === V_WARN, 'Warnstufe gefunden');
+    check(isset($m->messages[V_WARN]), 'Warnstufe wird überwacht');
+    check(actions() === [V_EXTEND . '=true'], 'ohne Warnung ausgefahren');
+    $m->sensor(V_WARN, 1);
+    check(count(Sym::$actions) === 1, 'Stufe 1: bleibt');
+    $m->sensor(V_WARN, 3);
+    check(lastAction() === V_RETRACT . '=true', 'Stufe 3: eingefahren');
+    check($m->value('Status') === Markisensteuerung::ST_WARNING, 'Status Unwetterwarnung');
+    check(str_contains((string) $m->value('Reason'), 'Stufe 3'), 'Begründung: ' . $m->value('Reason'));
+    $m->sensor(V_WARN, 12);
+    check($m->value('Safety') === false, 'Hitzewarnung (12) ist kein Alarm');
+    $tile = json_decode($m->attr('TileData'), true);
+    check(in_array('warning', array_column($tile['sensors'], 'k'), true), 'Kachel zeigt die Warnstufe');
+});
+
+test('Unwetterwarnung: fehlende Quelle blockiert nichts, Taste sucht', function (): void {
+    $m = markise(['UseWarning' => true]);
+    check($m->attr('WarningVar') === 0 && $m->status === 102, 'nicht gefunden, Instanz läuft');
+    check(actions() === [V_EXTEND . '=true'], 'fährt trotzdem aus');
+    ob_start();
+    $m->RequestAction('FindWarning', 0);
+    $out = (string) ob_get_clean();
+    check(str_contains($out, 'Indikatorvariable'), 'Hinweis zur Indikatorvariable');
+    Sym::$instances[960] = ['module' => UWW_GUID, 'props' => []];
+    Sym::variable(V_WARN, VARIABLETYPE_INTEGER, 0);
+    Sym::$idents[960]['Level'] = V_WARN;
+    ob_start();
+    $m->RequestAction('FindWarning', 0);
+    ob_end_clean();
+    check(in_array(['WarningVariableID', 'value', V_WARN], $m->formUpdates, true), 'Feld wird gefüllt');
+});
+
+test('Böen-Trend: schneller Anstieg fährt vorsorglich ein', function (): void {
+    $m = markise(['GustTrend' => true, 'GustAlarm' => 28.0, 'GustTrendRise' => 12.0, 'GustTrendShare' => 70]);
+    $m->advance(2);
+    $m->sensor(V_GUST, 15.0);
+    $m->advance(1);
+    check(count(Sym::$actions) === 1, 'leichter Anstieg: nichts');
+    $m->sensor(V_GUST, 23.0);
+    check(lastAction() === V_RETRACT . '=true', 'von 10 auf 23 km/h: eingefahren');
+    check(str_contains((string) $m->value('Reason'), 'steigen schnell'), 'Begründung: ' . $m->value('Reason'));
+    check($m->attr('WindLockUntil') > Sym::$now, 'Windsperre gesetzt');
+});
+
+test('Lux-Mittelwert: kurze Wolke löst nichts aus', function (): void {
+    $m = markise(['LuxAverageMinutes' => 10, 'DelayOff' => 0]);
+    Sym::$jitter = [];
+    $m->advance(10);
+    $m->sensor(V_LUX, 5000.0);
+    check(count(Sym::$actions) === 1, 'Wolke: Mittelwert noch hoch, bleibt');
+    $m->advance(2);
+    $m->sensor(V_LUX, 50000.0);
+    $m->advance(10);
+    check(count(Sym::$actions) === 1, 'Sonne zurück: keine Fahrt');
+    $m->sensor(V_LUX, 5000.0);
+    $m->advance(10);
+    check(lastAction() === V_RETRACT . '=true', 'dauerhaft dunkel: eingefahren');
+    check(count(json_decode($m->attr('LuxHistory'), true)) <= 11, 'Verlauf bleibt kurz');
+});
+
+test('Schaltlimit pro Stunde', function (): void {
+    $m = markise(['MaxMovesPerHour' => 2, 'FreezeMinutes' => 0]);
+    Sym::$jitter = [];
+    $m->sensor(V_LUX, 5000.0);
+    check(count(Sym::$actions) === 2, 'zweite Fahrt erlaubt');
+    $m->sensor(V_LUX, 50000.0);
+    check(count(Sym::$actions) === 2, 'dritte Fahrt gesperrt');
+    check(str_contains((string) $m->value('Reason'), 'Schaltlimit'), 'Begründung: ' . $m->value('Reason'));
+    $m->sensor(V_WIND, 7);
+    check(lastAction() === V_RETRACT . '=true', 'Sicherheit ist nie begrenzt');
+    Sym::$now += 2 * 3600;
+    $m->sensor(V_WIND, 2);
+    $m->advance(1);
+    check(lastAction() === V_EXTEND . '=true', 'eine Stunde später wieder frei: ' . $m->value('Reason'));
+});
+
+test('Eigener Standort hat Vorrang, Übernahme aus dem Location-Modul', function (): void {
+    $m = markise(['UseSunPosition' => true, 'AzimuthFrom' => 135.0, 'AzimuthTo' => 300.0]);
+    Sym::$location = [51.48, 7.22];
+    $own = markise(['Latitude' => -33.86, 'Longitude' => 151.2]);
+    $form = json_decode($own->GetConfigurationForm(), true);
+    $json = json_encode($form, JSON_UNESCAPED_UNICODE);
+    check(str_contains($json, 'eigener Standort -33,8600'), 'Formular nennt eigenen Standort');
+    ob_start();
+    $own->RequestAction('LocationFromModule', 0);
+    ob_end_clean();
+    check(in_array(['Latitude', 'value', 51.48], $own->formUpdates, true), 'Breitengrad aus dem Location-Modul ins Feld');
+    check(in_array(['Longitude', 'value', 7.22], $own->formUpdates, true), 'Längengrad ins Feld');
+    $mod = markise();
+    $json = json_encode(json_decode($mod->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE);
+    check(str_contains($json, 'Location-Modul 51,4800'), 'ohne eigene Angabe: Location-Modul');
+});
+
+/** Das ursprüngliche Skript (gekürzt auf die erkannten Stellen) */
+const OLD_SCRIPT = <<<'PHP'
+<?php
+eval(IPS_GetScriptContent(16199));
+$automatik = GetValueBoolean(21845);
+$wochentage = [
+    1 => ["name" => "Montag",     "id" => 501],
+    2 => ["name" => "Dienstag",   "id" => 502],
+    3 => ["name" => "Mittwoch",   "id" => 503],
+    4 => ["name" => "Donnerstag", "id" => 504],
+    5 => ["name" => "Freitag",    "id" => 505],
+    6 => ["name" => "Samstag",    "id" => 506],
+    7 => ["name" => "Sonntag",    "id" => 507]
+];
+$anwesend = GetValueBoolean(206);
+$helligkeit = GetValueFloat(201);
+$wind       = GetValueInteger(203);
+$boe        = GetValueFloat(204); // Letzte Böe in km/h
+$regen      = GetValueBoolean(205);
+$temp       = GetValueFloat(202);
+$LUX        = GetValueInteger(510);
+$TEMP       = GetValueFloat(511);
+$WIND_MAX   = GetValueInteger(512);
+$WIND_ALARM = 6;
+$BOE_ALARM_ID  = 513;
+$TAG_NACHT_PRUEFUNG_ID    = 514;
+$ABWESEND_KARENZ_SEK = 30 * 60;
+//$ABWESEND_KARENZ_SEK = 0;
+$HELLIGKEIT_FREEZE_LIMIT_SEK = 30 * 60;
+if (!$tag_aktiv) {
+    RequestAction(102, true);
+}
+if ($wind >= $WIND_ALARM) {
+    RequestAction(102, true);
+}
+RequestAction(101, true);
+RequestAction(102, true);
+PHP;
+
+function scriptVars(): void
+{
+    foreach ([501 => true, 502 => true, 503 => false, 504 => true, 505 => true, 506 => true, 507 => false] as $id => $v) {
+        Sym::variable($id, VARIABLETYPE_BOOLEAN, $v);
+    }
+    Sym::variable(510, VARIABLETYPE_INTEGER, 20000);
+    Sym::variable(511, VARIABLETYPE_FLOAT, 15.0);
+    Sym::variable(512, VARIABLETYPE_INTEGER, 2);
+    Sym::variable(513, VARIABLETYPE_FLOAT, 25.0);
+    Sym::variable(514, VARIABLETYPE_BOOLEAN, false);
+}
+
+function formValue(TestMarkise $m, string $field): mixed
+{
+    $value = null;
+    foreach ($m->formUpdates as [$f, $param, $v]) {
+        if ($f === $field && $param === 'value') {
+            $value = $v;
+        }
+    }
+    return $value;
+}
+
+test('Übernahme aus dem ursprünglichen Skript', function (): void {
+    $m = markise(['ExtendVariableID' => 0, 'RetractVariableID' => 0, 'BrightnessVariableID' => 0]);
+    scriptVars();
+    Sym::$scripts[34486] = OLD_SCRIPT;
+    ob_start();
+    $m->RequestAction('ImportScript', 34486);
+    $out = (string) ob_get_clean();
+    check(str_contains($out, 'Einstellungen aus dem Skript übernommen'), 'Zusammenfassung: ' . $out);
+    check(str_contains($out, 'Ereignisse des alten Skripts'), 'Hinweis, das alte Skript abzuschalten');
+    check(formValue($m, 'ExtendVariableID') === V_EXTEND, 'Ausfahren erkannt (seltener Befehl)');
+    check(formValue($m, 'RetractVariableID') === V_RETRACT, 'Einfahren erkannt (häufiger Befehl)');
+    check(formValue($m, 'BrightnessVariableID') === V_LUX, 'Helligkeit');
+    check(formValue($m, 'WindVariableID') === V_WIND && formValue($m, 'WindUnit') === 0, 'Wind in Bft');
+    check(formValue($m, 'GustVariableID') === V_GUST && formValue($m, 'GustUnit') === 1, 'Böen in km/h');
+    check(formValue($m, 'PresenceVariableID') === V_PRESENCE, 'Anwesenheit');
+    check(formValue($m, 'LuxOn') === 20000 && formValue($m, 'LuxOff') === 20000, 'Luxgrenze aus der Vorgabe-Variable');
+    check(formValue($m, 'TempMin') === 15.0, 'Temperatur aus der Vorgabe-Variable');
+    check(formValue($m, 'WindMax') === 2.0 && formValue($m, 'WindAlarm') === 6.0, 'Windgrenzen');
+    check(formValue($m, 'GustAlarm') === 25.0, 'Böenalarm aus der Variable');
+    check(formValue($m, 'DayCheck') === false, 'Tag/Nacht-Prüfung aus');
+    check(formValue($m, 'Weekday3') === false && formValue($m, 'Weekday1') === true && formValue($m, 'Weekday7') === false, 'Wochentage');
+    check(formValue($m, 'GraceMinutes') === 30, 'Karenz 30 min (auskommentierte Zeile zählt nicht)');
+    check($m->properties['ExtendVariableID'] === 0, 'nichts gespeichert, nur das Formular gefüllt');
+});
+
+test('Übernahme aus dem überarbeiteten Skript mit Konstanten', function (): void {
+    $m = markise();
+    scriptVars();
+    Sym::variable(V_DOOR, VARIABLETYPE_INTEGER, 0);
+    Sym::$scripts[34487] = (string) file_get_contents(__DIR__ . '/fixtures/Markisenskript.php');
+    ob_start();
+    $m->RequestAction('ImportScript', 34487);
+    $out = (string) ob_get_clean();
+    check(str_contains($out, 'übernommen'), 'Zusammenfassung');
+    check(formValue($m, 'DoorVariableID') === V_DOOR, 'Terrassentür');
+    check(formValue($m, 'LuxOn') === 23000 && formValue($m, 'LuxOff') === 17000, 'Luxgrenzen ±15 %');
+    check(formValue($m, 'TempMin') === 15.5 && formValue($m, 'TempHysteresis') === 1.0, 'Temperatur mit Hysterese');
+    check(formValue($m, 'WindLockMinutes') === 20 && formValue($m, 'RainLockMinutes') === 45, 'Sperrzeiten');
+    check(formValue($m, 'DelayOn') === 5 && formValue($m, 'DelayOff') === 15, 'Verzögerungen');
+    check(formValue($m, 'MaxMovesPerHour') === 4 && formValue($m, 'LuxAverageMinutes') === 10, 'Schaltlimit und Mittelwert');
+    check(formValue($m, 'GustTrendRise') === 12.0 && formValue($m, 'GustTrendShare') === 70, 'Böen-Trend');
+    check(formValue($m, 'UseSunPosition') === true && formValue($m, 'AzimuthFrom') === 135.0 && formValue($m, 'AzimuthTo') === 300.0, 'Sonnenrichtung');
+    check(formValue($m, 'Latitude') === 53.22 && formValue($m, 'Longitude') === 7.8, 'Standort');
+    check(formValue($m, 'UseWarning') === true && formValue($m, 'WarningVariableID') === 0, 'Unwetterwarnung automatisch');
+});
+
+test('Übernahme: Fehler werden freundlich gemeldet', function (): void {
+    $m = markise();
+    ob_start();
+    $m->RequestAction('ImportScript', 0);
+    $a = (string) ob_get_clean();
+    Sym::$scripts[1] = "<?php\necho 'Hallo';";
+    ob_start();
+    $m->RequestAction('ImportScript', 1);
+    $b = (string) ob_get_clean();
+    check(str_contains($a, 'auswählen') && str_contains($b, 'nichts erkannt'), 'Hinweise: ' . $a . ' / ' . $b);
+    check($m->formUpdates === [], 'nichts verändert');
+});
+
+test('Simulation: Terrassentür und Warnstufe', function (): void {
+    Sym::variable(V_DOOR, VARIABLETYPE_INTEGER, 2);
+    $m = markise(['SimulationMode' => true, 'DoorVariableID' => V_DOOR, 'UseWarning' => true]);
+    check($m->has('SimDoor') && $m->has('SimWarning'), 'Simulationsvariablen vorhanden');
+    check($m->value('SimDoor') === true, 'Tür offen übernommen');
+    $m->RequestAction('Hold', true);
+    $m->RequestAction('SimDoor', false);
+    check($m->value('Hold') === false, 'simuliert geschlossen: Halten aus');
+    $m->RequestAction('SimWarning', 3);
+    check($m->value('Status') === Markisensteuerung::ST_WARNING, 'simulierte Warnung');
+    check(Sym::$actions === [], 'nichts wirklich bewegt');
+    $m->RequestAction('SimWarning', 9);
+    check($m->value('SimWarning') === 4, 'Warnstufe begrenzt');
 });
 
 // =====================================================================

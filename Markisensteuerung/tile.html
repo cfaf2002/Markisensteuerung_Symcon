@@ -134,7 +134,8 @@
     .ctrl button:disabled { opacity: .4; cursor: not-allowed; }
     .ctrl button:active:not(:disabled) { transform: translateY(1px); }
     button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-    #stop[hidden] { display: none; }
+    #stop[hidden], #hold[hidden] { display: none; }
+    #hold { flex: 0 0 auto; padding: 0 10px; }
 
     .sim {
         display: none; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;
@@ -232,6 +233,7 @@
         <button id="retract" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3 L14 10 H2 Z" fill="currentColor"></path></svg><span data-t="Retract">Retract</span></button>
         <button id="stop" type="button" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor"></rect></svg><span data-t="Stop">Stop</span></button>
         <button id="extend" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13 L14 6 H2 Z" fill="currentColor"></path></svg><span data-t="Extend">Extend</span></button>
+        <button id="hold" type="button" role="switch" aria-checked="false" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.2 A6 6 0 1 0 13.8 10.5 A5 5 0 1 1 10.5 2.2 Z" fill="currentColor"></path></svg><span data-t="Hold">Hold</span></button>
     </div>
 </div>
 
@@ -295,6 +297,7 @@
             if (s === 9) return 'wind';
             if (s === 10) return 'rain';
             if (s === 11) return 'frost';
+            if (s === 14) return 'wind';
             if (d.sun && !d.sun.day) return 'night';
             if (s === 2) return 'sun';
             return 'cloud';
@@ -332,6 +335,12 @@
             $('retract').classList.toggle('on', inn);
             $('extend').disabled = !!d.safety;
             $('extend').title = d.safety ? (d.reason || '') : '';
+
+            var hold = $('hold');
+            hold.hidden = !d.holdEnabled;
+            hold.classList.toggle('on', !!d.hold);
+            hold.setAttribute('aria-checked', d.hold ? 'true' : 'false');
+            hold.title = t(d.hold ? 'End hold – the automatic decides again' : 'Hold – the awning stays as it is (evening mode)');
 
             renderSensors(d.sensors || []);
             renderTimer();
@@ -401,6 +410,9 @@
         $('retract').addEventListener('click', function () { send('Control', 0); });
         $('stop').addEventListener('click', function () { send('Control', 1); });
         $('extend').addEventListener('click', function () { send('Control', 2); });
+        $('hold').addEventListener('click', function () {
+            if (last) send('Hold', !last.hold);
+        });
 
         // Statische Texte übersetzen
         Array.prototype.forEach.call(document.querySelectorAll('[data-t]'), function (el) {

@@ -17,6 +17,8 @@ require_once __DIR__ . '/../libs/MarkiseActuatorTrait.php';
 require_once __DIR__ . '/../libs/MarkiseTileTrait.php';
 require_once __DIR__ . '/../libs/MarkiseNotifyTrait.php';
 require_once __DIR__ . '/../libs/MarkiseSimulationTrait.php';
+require_once __DIR__ . '/../libs/MarkiseExtrasTrait.php';
+require_once __DIR__ . '/../libs/MarkiseImportTrait.php';
 
 class Markisensteuerung extends IPSModuleStrict
 {
@@ -25,6 +27,8 @@ class Markisensteuerung extends IPSModuleStrict
     use MarkiseTileTrait;
     use MarkiseNotifyTrait;
     use MarkiseSimulationTrait;
+    use MarkiseExtrasTrait;
+    use MarkiseImportTrait;
 
     // Werte der Variable "Status"
     public const ST_OFF = 0;
@@ -40,6 +44,8 @@ class Markisensteuerung extends IPSModuleStrict
     public const ST_RAIN = 10;
     public const ST_FROST = 11;
     public const ST_SENSOR = 12;
+    public const ST_HOLD = 13;
+    public const ST_WARNING = 14;
 
     // Werte der Variable "Zustand"
     public const STATE_RETRACTED = 0;
@@ -115,6 +121,13 @@ class Markisensteuerung extends IPSModuleStrict
         $this->RegisterPropertyInteger('FreezeMinutes', 30);
         $this->RegisterPropertyFloat('FreezeMinChange', 1.0);
         $this->RegisterPropertyBoolean('SafetyAlways', true);
+        $this->RegisterPropertyBoolean('GustTrend', true);
+        $this->RegisterPropertyFloat('GustTrendRise', 12.0);
+        $this->RegisterPropertyInteger('GustTrendMinutes', 15);
+        $this->RegisterPropertyInteger('GustTrendShare', 70);
+        $this->RegisterPropertyBoolean('UseWarning', false);
+        $this->RegisterPropertyInteger('WarningVariableID', 0);
+        $this->RegisterPropertyInteger('WarningMinLevel', 2);
 
         // Sonnenautomatik
         $this->RegisterPropertyInteger('LuxOn', 30000);
@@ -128,6 +141,12 @@ class Markisensteuerung extends IPSModuleStrict
         $this->RegisterPropertyFloat('AzimuthFrom', 90.0);
         $this->RegisterPropertyFloat('AzimuthTo', 270.0);
         $this->RegisterPropertyFloat('SunElevationMin', 10.0);
+        $this->RegisterPropertyInteger('LuxAverageMinutes', 10);
+        $this->RegisterPropertyInteger('MaxMovesPerHour', 4);
+
+        // Standort (0/0 = aus Kern Instanzen → Location)
+        $this->RegisterPropertyFloat('Latitude', 0.0);
+        $this->RegisterPropertyFloat('Longitude', 0.0);
 
         // Zeiten
         for ($d = 1; $d <= 7; $d++) {
@@ -143,6 +162,11 @@ class Markisensteuerung extends IPSModuleStrict
         $this->RegisterPropertyInteger('GraceMinutes', 30);
         $this->RegisterPropertyInteger('ManualPauseMinutes', 60);
         $this->RegisterPropertyBoolean('ManualDetect', true);
+
+        // Halten (Abendmodus)
+        $this->RegisterPropertyBoolean('HoldEnabled', true);
+        $this->RegisterPropertyInteger('DoorVariableID', 0);
+        $this->RegisterPropertyInteger('DoorClosedValue', 0);
 
         // Benachrichtigung
         $this->RegisterPropertyBoolean('NotifySafety', false);
@@ -180,6 +204,12 @@ class Markisensteuerung extends IPSModuleStrict
         $this->RegisterAttributeBoolean('SimActive', false);
         $this->RegisterAttributeBoolean('RealSafetySent', false);
         $this->RegisterAttributeString('SimLog', '[]');
+        $this->RegisterAttributeInteger('HoldSince', 0);
+        $this->RegisterAttributeBoolean('DoorWasClosed', true);
+        $this->RegisterAttributeString('GustHistory', '[]');
+        $this->RegisterAttributeString('LuxHistory', '[]');
+        $this->RegisterAttributeString('MoveLog', '[]');
+        $this->RegisterAttributeInteger('WarningVar', 0);
 
         $this->RegisterTimer('Tick', 0, 'IPS_RequestAction($_IPS[\'TARGET\'], \'Tick\', 0);');
         $this->RegisterTimer('Travel', 0, 'IPS_RequestAction($_IPS[\'TARGET\'], \'TravelDone\', 0);');
@@ -197,6 +227,7 @@ class Markisensteuerung extends IPSModuleStrict
         }
 
         $this->SetVisualizationType($this->ReadPropertyBoolean('UseTile') ? 1 : 0);
+        $this->WriteAttributeInteger('WarningVar', $this->FindWarningVariable());
         $this->MaintainVariables();
         $this->MaintainSimVariables();
         $this->WatchVariables();
@@ -276,6 +307,35 @@ class Markisensteuerung extends IPSModuleStrict
                 $this->EndManualPause();
                 return;
 
+            case 'Hold':
+                $this->SetHold((bool) $Value);
+                return;
+
+            case 'ImportScript':
+                echo $this->ImportFromScript((int) $Value);
+                return;
+
+            case 'LocationFromModule':
+                $loc = $this->ModuleLocation();
+                if ($loc === null) {
+                    echo $this->Translate('No location found under Core Instances → Location.');
+                    return;
+                }
+                $this->UpdateFormField('Latitude', 'value', $loc[0]);
+                $this->UpdateFormField('Longitude', 'value', $loc[1]);
+                echo sprintf($this->Translate('Location %s / %s taken over. Click "Apply changes" to save.'), (string) $loc[0], (string) $loc[1]);
+                return;
+
+            case 'FindWarning':
+                $id = $this->FindWarningVariable(true);
+                if ($id === 0) {
+                    echo $this->Translate('No instance of the module "Unwetterwarnung" with a warning level variable found. Enable "Indicator variable for active warnings" there.');
+                    return;
+                }
+                $this->UpdateFormField('WarningVariableID', 'value', $id);
+                echo sprintf($this->Translate('Warning level found (#%d). Click "Apply changes" to save.'), $id);
+                return;
+
             case 'RestartGrace':
                 $this->RestartGrace();
                 return;
@@ -295,7 +355,9 @@ class Markisensteuerung extends IPSModuleStrict
                 return;
 
             case 'FormGustUnit':
-                $this->UpdateFormField('GustAlarm', 'suffix', trim($this->UnitSuffix((int) $Value)));
+                foreach (['GustAlarm', 'GustTrendRise'] as $field) {
+                    $this->UpdateFormField($field, 'suffix', trim($this->UnitSuffix((int) $Value)));
+                }
                 return;
 
             case 'FormMode':
@@ -320,6 +382,8 @@ class Markisensteuerung extends IPSModuleStrict
             case 'SimGust':
             case 'SimRain':
             case 'SimPresence':
+            case 'SimDoor':
+            case 'SimWarning':
             case 'SimTime':
                 $this->SetSimValue($Ident, $Value);
                 return;
@@ -412,6 +476,17 @@ class Markisensteuerung extends IPSModuleStrict
         $this->EvaluateNow('automatic ' . ($Active ? 'on' : 'off'));
     }
 
+    /** Halten (Abendmodus): Markise bleibt, wie sie ist – nur Sicherheit fährt noch ein. */
+    public function SetHold(bool $Active): void
+    {
+        if (!$this->ReadPropertyBoolean('HoldEnabled')) {
+            throw new InvalidArgumentException('Halten ist in der Instanz ausgeschaltet.');
+        }
+        $this->SetValue('Hold', $Active);
+        $this->WriteAttributeInteger('HoldSince', $Active ? $this->Now() : 0);
+        $this->EvaluateNow('hold ' . ($Active ? 'on' : 'off'));
+    }
+
     public function EndManualPause(): void
     {
         $this->WriteManualUntil(0);
@@ -456,6 +531,9 @@ class Markisensteuerung extends IPSModuleStrict
 
         if ($result['action'] !== 'none') {
             $this->ExecuteCommand($result['action'], false);
+            if ($result['comfort']) {
+                $this->RecordMove($now);
+            }
             if (!$sim && $result['action'] === 'retract' && $result['safety'] !== '' && $this->ReadPropertyBoolean('RepeatRetract')) {
                 // Funkmotoren ohne Rückmeldung (z. B. Somfy RTS): Befehl nach der Fahrzeit sicherheitshalber wiederholen
                 $this->SetTimerInterval('Repeat', max(10, $this->ReadPropertyInteger('TravelTime')) * 1000);
@@ -498,6 +576,7 @@ class Markisensteuerung extends IPSModuleStrict
         $sun = $this->SunNow($sky);
 
         $lux = $this->ReadSensor('BrightnessVariableID');
+        $gust = $this->ReadSensor('GustVariableID');
         $windID = $this->ReadPropertyInteger('WindVariableID');
         $gustID = $this->ReadPropertyInteger('GustVariableID');
 
@@ -523,17 +602,24 @@ class Markisensteuerung extends IPSModuleStrict
         $graceTotal = max(0, $this->ReadPropertyInteger('GraceMinutes')) * 60;
         $graceLeft = $absentSince > 0 ? max(0, $graceTotal - ($now - $absentSince)) : 0;
 
+        // Böen-Trend und Lux-Mittelwert aus dem kurzen Verlauf
+        $gustTrend = $this->GustTrend($gust, $now);
+        $luxAvg = $this->LuxAverage($lux, $now);
+
         return [
             'now'         => $now,
             'automatic'   => (bool) $this->GetValue('Automatic'),
             'lastCommand' => $this->ReadAttributeString('LastCommand'),
             'manualUntil' => $this->ReadAttributeInteger('ManualUntil'),
             'lux'         => $lux,
+            'luxAvg'      => $luxAvg,
             'luxFrozen'   => !$sim && $this->BrightnessFrozen($lux, $now, $isDay),
             'temp'        => $this->ReadSensor('TemperatureVariableID'),
             'wind'        => $this->ReadSensor('WindVariableID'),
-            'gust'        => $this->ReadSensor('GustVariableID'),
+            'gust'        => $gust,
+            'gustTrend'   => $gustTrend,
             'rain'        => $this->ReadSensor('RainVariableID'),
+            'warning'     => $this->WarningLevel(),
             'windStale'   => !$sim && $this->SensorsStale([$windID, $gustID], $now),
             'simulation'  => $sim,
             'sun'         => $sun,
@@ -545,22 +631,24 @@ class Markisensteuerung extends IPSModuleStrict
             'graceLeft'   => $graceLeft,
             'absentSince' => $absentSince,
             'graceTotal'  => $graceTotal,
+            'hold'        => $this->HoldActive($present, $graceLeft, $isDay, $sky),
         ];
     }
 
     /**
      * Entscheidet, was zu tun ist. Reihenfolge = Priorität:
-     * Sicherheit → Automatik aus → Handbetrieb → Wochentag → Nacht → Zeitfenster → Sonne → Anwesenheit.
+     * Sicherheit → Automatik aus → Handbetrieb → Halten → Wochentag → Nacht → Zeitfenster → Sonne → Anwesenheit.
      *
-     * @return array{action: string, status: int, reason: string, safety: string, attributes: array<string, int>}
+     * @return array{action: string, status: int, reason: string, safety: string, attributes: array<string, int>, comfort: bool}
      */
     protected function Decide(array $c): array
     {
         $now = $c['now'];
         $last = $c['lastCommand'];
         $attr = [];
-        $out = function (string $action, int $status, string $reason, string $safety = '') use (&$attr): array {
-            return ['action' => $action, 'status' => $status, 'reason' => $reason, 'safety' => $safety, 'attributes' => $attr];
+        $comfort = false; // Fahrt der Sonnenautomatik (zählt für das Schaltlimit)
+        $out = function (string $action, int $status, string $reason, string $safety = '') use (&$attr, &$comfort): array {
+            return ['action' => $action, 'status' => $status, 'reason' => $reason, 'safety' => $safety, 'attributes' => $attr, 'comfort' => $comfort && $action !== 'none'];
         };
         $retractIfNeeded = static function () use ($last): string {
             return $last === 'retract' ? 'none' : 'retract';
@@ -583,6 +671,16 @@ class Markisensteuerung extends IPSModuleStrict
             $safety = 'gust';
             $status = self::ST_WIND;
             $reason = sprintf($this->Translate('Gust alarm (%s) → awning retracted'), $this->Num($c['gust']) . $gu);
+        } elseif ($c['gustTrend'] !== null) {
+            // Böen steigen schnell: vorsorglich einfahren, bevor der Alarm erreicht ist
+            $safety = 'gust';
+            $status = self::ST_WIND;
+            $reason = sprintf($this->Translate('Gusts rising quickly (%s → %s) → awning retracted'), $this->Num($c['gustTrend']), $this->Num((float) $c['gust']) . $gu);
+        } elseif ($c['warning'] !== null && $c['warning'] >= $this->ReadPropertyInteger('WarningMinLevel') && $c['warning'] < 10) {
+            // Unwetterwarnung des DWD; Stufen ab 10 sind Hitze/UV und kein Grund zum Einfahren
+            $safety = 'warning';
+            $status = self::ST_WARNING;
+            $reason = sprintf($this->Translate('Weather warning (level %d) → awning retracted'), $c['warning']);
         } elseif ($c['windStale']) {
             $safety = 'sensor';
             $status = self::ST_SENSOR;
@@ -639,6 +737,13 @@ class Markisensteuerung extends IPSModuleStrict
             return $out('none', self::ST_MANUAL, sprintf($this->Translate('Manual operation → automatic paused until %s'), date('H:i', $c['manualUntil'])));
         }
 
+        // ---------- 3a. Halten (Abendmodus) ----------
+        if ($c['hold']) {
+            $attr['OnSince'] = 0;
+            $attr['OffSince'] = 0;
+            return $out('none', self::ST_HOLD, $this->Translate('Hold active → awning stays as it is (only safety retracts)'));
+        }
+
         // ---------- 4. Wochentag ----------
         if (!$this->ReadPropertyBoolean('Weekday' . $c['weekday'])) {
             return $out($retractIfNeeded(), self::ST_WEEKDAY, $this->Translate('Day not released → awning retracted'));
@@ -661,8 +766,10 @@ class Markisensteuerung extends IPSModuleStrict
         $tempHyst = max(0.0, $this->ReadPropertyFloat('TempHysteresis'));
         $windMax = $this->ReadPropertyFloat('WindMax');
 
-        $brightOn = $c['lux'] === null || $c['lux'] >= $luxOn;
-        $brightLow = $c['lux'] !== null && $c['lux'] < $luxOff;
+        // Helligkeit als gleitender Mittelwert: durchziehende Wolken lösen nichts aus
+        $lux = $c['luxAvg'] ?? $c['lux'];
+        $brightOn = $lux === null || $lux >= $luxOn;
+        $brightLow = $lux !== null && $lux < $luxOff;
         $warmOn = $c['temp'] === null || $c['temp'] >= $tempMin;
         $coldOff = $c['temp'] !== null && $c['temp'] < $tempMin - $tempHyst;
         $windOk = $c['wind'] === null || $c['wind'] <= $windMax;
@@ -681,8 +788,12 @@ class Markisensteuerung extends IPSModuleStrict
                 $since = $this->ReadAttributeInteger('OnSince') ?: $now;
                 $attr['OnSince'] = $since;
                 $wait = $this->Minutes('DelayOn') * 60 - ($now - $since);
-                if ($wait <= 0) {
+                if ($wait <= 0 && $this->MoveLimitReached($now)) {
+                    $status = self::ST_WAITING;
+                    $reason = sprintf($this->Translate('Movement limit (%d per hour) reached → awning stays'), $this->ReadPropertyInteger('MaxMovesPerHour'));
+                } elseif ($wait <= 0) {
                     $action = 'extend';
+                    $comfort = true;
                     $status = self::ST_SUN;
                     $reason = $this->Translate('Conditions met → awning extended');
                 } else {
@@ -705,8 +816,12 @@ class Markisensteuerung extends IPSModuleStrict
                 $since = $this->ReadAttributeInteger('OffSince') ?: $now;
                 $attr['OffSince'] = $since;
                 $wait = $this->Minutes('DelayOff') * 60 - ($now - $since);
-                if ($wait <= 0) {
+                if ($wait <= 0 && $this->MoveLimitReached($now)) {
+                    $status = self::ST_SUN;
+                    $reason = sprintf($this->Translate('Movement limit (%d per hour) reached → awning stays'), $this->ReadPropertyInteger('MaxMovesPerHour'));
+                } elseif ($wait <= 0) {
                     $action = 'retract';
+                    $comfort = true;
                     $status = self::ST_WAITING;
                     $reason = $this->Translate('Conditions no longer met → awning retracted');
                 } else {
@@ -917,7 +1032,7 @@ class Markisensteuerung extends IPSModuleStrict
                 return $simulated;
             }
         }
-        $id = $this->ReadPropertyInteger($property);
+        $id = $property === 'WarningVariableID' ? $this->WarningID() : $this->ReadPropertyInteger($property);
         if ($id <= 0 || !IPS_VariableExists($id)) {
             return null;
         }
@@ -1006,6 +1121,17 @@ class Markisensteuerung extends IPSModuleStrict
             'USAGE_TYPE'   => 0,
         ], 10, true);
         $this->EnableAction('Automatic');
+
+        $hold = $this->ReadPropertyBoolean('HoldEnabled');
+        $this->MaintainVariable('Hold', $this->Translate('Hold (evening mode)'), VARIABLETYPE_BOOLEAN, [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON_TRUE'    => 'moon-stars',
+            'ICON_FALSE'   => 'moon',
+            'USAGE_TYPE'   => 0,
+        ], 15, $hold);
+        if ($hold) {
+            $this->EnableAction('Hold');
+        }
 
         $canStop = $this->CanStop();
         $options = [
@@ -1109,6 +1235,8 @@ class Markisensteuerung extends IPSModuleStrict
             $o(self::ST_RAIN, $this->Translate('Rain'), 'cloud-rain', 0xDC2626),
             $o(self::ST_FROST, $this->Translate('Frost'), 'snowflake', 0xDC2626),
             $o(self::ST_SENSOR, $this->Translate('Sensor fault'), 'sensor-triangle-exclamation', 0xDC2626),
+            $o(self::ST_HOLD, $this->Translate('Hold (evening mode)'), 'moon-stars', 0x6366F1),
+            $o(self::ST_WARNING, $this->Translate('Weather warning'), 'triangle-exclamation', 0xDC2626),
         ];
     }
 
@@ -1215,7 +1343,7 @@ class Markisensteuerung extends IPSModuleStrict
                 return 201;
             }
         }
-        foreach (['BrightnessVariableID', 'TemperatureVariableID', 'WindVariableID', 'GustVariableID', 'RainVariableID', 'PresenceVariableID'] as $prop) {
+        foreach (['BrightnessVariableID', 'TemperatureVariableID', 'WindVariableID', 'GustVariableID', 'RainVariableID', 'PresenceVariableID', 'DoorVariableID', 'WarningVariableID'] as $prop) {
             $id = $this->ReadPropertyInteger($prop);
             if ($id > 0 && !IPS_VariableExists($id)) {
                 $this->SendDebug('Konfiguration', $prop . ' (' . $id . ') existiert nicht', 0);
@@ -1239,9 +1367,10 @@ class Markisensteuerung extends IPSModuleStrict
             $this->UnregisterReference((int) $id);
         }
         $ids = [];
-        foreach (['BrightnessVariableID', 'TemperatureVariableID', 'WindVariableID', 'GustVariableID', 'RainVariableID', 'PresenceVariableID'] as $prop) {
+        foreach (['BrightnessVariableID', 'TemperatureVariableID', 'WindVariableID', 'GustVariableID', 'RainVariableID', 'PresenceVariableID', 'DoorVariableID'] as $prop) {
             $ids[] = $this->ReadPropertyInteger($prop);
         }
+        $ids[] = $this->WarningID();
         $ids = array_merge($ids, array_keys($this->ActuatorWatchList()));
         $ids = array_values(array_unique(array_filter($ids, static fn (int $id): bool => $id > 0)));
         foreach ($ids as $id) {
@@ -1276,7 +1405,21 @@ class Markisensteuerung extends IPSModuleStrict
         );
         $windSuffix = trim($this->UnitSuffix($this->ReadPropertyInteger('WindUnit')));
         $gustSuffix = trim($this->UnitSuffix($this->ReadPropertyInteger('GustUnit')));
-        $form['elements'] = $this->WalkForm($form['elements'], static function (array $el) use ($visible, $unitOptions, $windSuffix, $gustSuffix): array {
+
+        // Woher kommt der Standort?
+        $own = self::ValidLocation($this->ReadPropertyFloat('Latitude'), $this->ReadPropertyFloat('Longitude'));
+        $module = $this->ModuleLocation();
+        $captions = [
+            'LocationSource' => $own !== null
+                ? sprintf($this->Translate('Used: own location %s / %s'), $this->Coord($own[0]), $this->Coord($own[1]))
+                : ($module !== null ? sprintf($this->Translate('Used: location module %s / %s'), $this->Coord($module[0]), $this->Coord($module[1])) : ''),
+        ];
+        if ($this->ReadPropertyBoolean('UseWarning')) {
+            $warn = $this->WarningID();
+            $captions['WarningInfo'] = $this->Translate('Levels: 1 = weather warning, 2 = significant weather, 3 = severe weather, 4 = extreme weather. Heat and UV warnings are ignored. If the warning source fails, the awning is not blocked.')
+                . ' ' . ($warn > 0 ? sprintf($this->Translate('Warning level in use: #%d'), $warn) : $this->Translate('No warning level found yet.'));
+        }
+        $form['elements'] = $this->WalkForm($form['elements'], static function (array $el) use ($visible, $unitOptions, $windSuffix, $gustSuffix, $captions): array {
             $name = $el['name'] ?? '';
             if (isset($visible[$name])) {
                 $el['visible'] = $visible[$name];
@@ -1284,8 +1427,11 @@ class Markisensteuerung extends IPSModuleStrict
             if ($name === 'WindAlarm' || $name === 'WindMax') {
                 $el['suffix'] = $windSuffix;
             }
-            if ($name === 'GustAlarm') {
+            if ($name === 'GustAlarm' || $name === 'GustTrendRise') {
                 $el['suffix'] = $gustSuffix;
+            }
+            if (isset($captions[$name])) {
+                $el['caption'] = $captions[$name];
             }
             if ($name === 'WindUnit' || $name === 'GustUnit') {
                 $el['options'] = $unitOptions;
@@ -1375,6 +1521,11 @@ class Markisensteuerung extends IPSModuleStrict
     {
         $dec = $this->Translate('.');
         return number_format($v, 0, $dec, $dec === ',' ? '.' : ',');
+    }
+
+    private function Coord(float $v): string
+    {
+        return number_format($v, 4, $this->Translate('.'), '');
     }
 
     private function Num(float $v): string

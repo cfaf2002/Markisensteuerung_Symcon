@@ -41,6 +41,8 @@ final class Sym
     public static bool $actionFails = false;
     public static int $now = 0;               // simulierte Uhr
     public static array $jitter = [];        // Sensoren, die beim Vorspulen leicht schwanken (wie echte Sensoren)
+    public static array $scripts = [];       // ID => Inhalt
+    public static array $idents = [];        // Eltern-ID => [Ident => ID]
 
     public static function reset(): void
     {
@@ -53,6 +55,8 @@ final class Sym
         self::$actionFails = false;
         self::$now = 0;
         self::$jitter = [];
+        self::$scripts = [];
+        self::$idents = [];
         self::$translations = json_decode((string) file_get_contents(__DIR__ . '/../Markisensteuerung/locale.json'), true)['translations']['de'];
     }
 
@@ -111,6 +115,19 @@ function IPS_GetModule(string $moduleID): array
 }
 
 function IPS_InstanceExists(int $id): bool { return isset(Sym::$instances[$id]); }
+
+function IPS_GetObjectIDByIdent(string $ident, int $parent): int|false
+{
+    if (!isset(Sym::$idents[$parent][$ident])) {
+        trigger_error('Ident nicht gefunden: ' . $ident, E_USER_WARNING);
+        return false;
+    }
+    return Sym::$idents[$parent][$ident];
+}
+
+function IPS_ScriptExists(int $id): bool { return isset(Sym::$scripts[$id]); }
+
+function IPS_GetScriptContent(int $id): string { return Sym::$scripts[$id]; }
 
 function IPS_GetConfiguration(int $id): string
 {

@@ -27,6 +27,8 @@ trait MarkiseSimulationTrait
         'GustVariableID'        => 'SimGust',
         'RainVariableID'        => 'SimRain',
         'PresenceVariableID'    => 'SimPresence',
+        'DoorVariableID'        => 'SimDoor',
+        'WarningVariableID'     => 'SimWarning',
     ];
 
     /** Einträge im Simulationsprotokoll */
@@ -60,10 +62,15 @@ trait MarkiseSimulationTrait
             'SimGust'     => ['Simulation – gusts', VARIABLETYPE_FLOAT, $slider('wind', 0, self::UnitMax($gu), self::UnitStep($gu), $this->UnitSuffix($gu), $gu === 0 ? 0 : 1), 203],
             'SimRain'     => ['Simulation – rain', VARIABLETYPE_BOOLEAN, $switch('cloud-rain'), 204],
             'SimPresence' => ['Simulation – someone at home', VARIABLETYPE_BOOLEAN, $switch('house-user'), 205],
+            'SimDoor'     => ['Simulation – terrace door open', VARIABLETYPE_BOOLEAN, $switch('door-open'), 206],
+            'SimWarning'  => ['Simulation – weather warning level', VARIABLETYPE_INTEGER, $slider('triangle-exclamation', 0, 4, 1, '', 0), 207],
         ];
         $sensorOf = array_flip(self::SIM_SENSORS);
         foreach ($defs as $ident => [$name, $type, $presentation, $pos]) {
-            $keep = $sim && $this->ReadPropertyInteger($sensorOf[$ident]) > 0;
+            $property = $sensorOf[$ident];
+            // Warnstufe: auch ohne gewählte Variable (automatisch gefunden), sobald die Warnung eingeschaltet ist
+            $configured = $property === 'WarningVariableID' ? $this->ReadPropertyBoolean('UseWarning') : $this->ReadPropertyInteger($property) > 0;
+            $keep = $sim && $configured;
             $this->MaintainVariable($ident, $this->Translate($name), $type, $presentation, $pos, $keep);
             if ($keep) {
                 $this->EnableAction($ident);
@@ -72,7 +79,7 @@ trait MarkiseSimulationTrait
 
         $this->MaintainVariable('SimTime', $this->Translate('Simulation – time of day (HH:MM, empty = now)'), VARIABLETYPE_STRING, [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_INPUT,
-        ], 206, $sim);
+        ], 208, $sim);
         if ($sim) {
             $this->EnableAction('SimTime');
         }
@@ -80,7 +87,7 @@ trait MarkiseSimulationTrait
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'list',
             'MULTILINE'    => true,
-        ], 207, $sim);
+        ], 209, $sim);
     }
 
     /**
@@ -94,7 +101,14 @@ trait MarkiseSimulationTrait
         switch ($ident) {
             case 'SimRain':
             case 'SimPresence':
+            case 'SimDoor':
                 $value = (bool) $value;
+                break;
+            case 'SimWarning':
+                if (!is_numeric($value)) {
+                    throw new InvalidArgumentException($this->Translate('Please enter a number.'));
+                }
+                $value = max(0, min(4, (int) $value));
                 break;
             case 'SimTime':
                 $value = trim((string) $value);
@@ -130,7 +144,12 @@ trait MarkiseSimulationTrait
             if ($real === null) {
                 continue;
             }
-            $value = in_array($ident, ['SimRain', 'SimPresence'], true) ? $real > 0 : round($real, 1);
+            $value = match ($ident) {
+                'SimRain', 'SimPresence' => $real > 0,
+                'SimDoor'                => (int) round($real) !== $this->ReadPropertyInteger('DoorClosedValue'),
+                'SimWarning'             => max(0, min(4, (int) round($real))),
+                default                  => round($real, 1),
+            };
             $this->SetValueIfChanged($ident, $value);
         }
         if (@$this->GetIDForIdent('SimTime') !== false) {
@@ -205,6 +224,7 @@ trait MarkiseSimulationTrait
         $wind = $this->ReadSensor('WindVariableID', true);
         $gust = $this->ReadSensor('GustVariableID', true);
         $rain = $this->ReadSensor('RainVariableID', true);
+        $warning = $this->ReadPropertyBoolean('UseWarning') ? $this->ReadSensor('WarningVariableID', true) : null;
         $alarm = '';
         if ($wind !== null && $wind >= $this->ReadPropertyFloat('WindAlarm')) {
             $alarm = sprintf($this->Translate('Real wind alarm (%s)'), $this->Num($wind) . $this->UnitSuffix($this->ReadPropertyInteger('WindUnit')));
@@ -212,6 +232,8 @@ trait MarkiseSimulationTrait
             $alarm = sprintf($this->Translate('Real gust alarm (%s)'), $this->Num($gust) . $this->UnitSuffix($this->ReadPropertyInteger('GustUnit')));
         } elseif ($rain !== null && $rain > 0) {
             $alarm = $this->Translate('Real rain');
+        } elseif ($warning !== null && $warning >= $this->ReadPropertyInteger('WarningMinLevel') && $warning < 10) {
+            $alarm = sprintf($this->Translate('Real weather warning (level %d)'), (int) $warning);
         }
 
         $sent = $this->ReadAttributeBoolean('RealSafetySent');
@@ -243,6 +265,9 @@ trait MarkiseSimulationTrait
         foreach (['OnSince', 'OffSince', 'WindLockUntil', 'RainLockUntil', 'AbsentSince', 'BrightLastChange'] as $a) {
             $this->WriteAttributeInteger($a, 0);
         }
+        foreach (['GustHistory', 'LuxHistory', 'MoveLog'] as $a) {
+            $this->WriteAttributeString($a, '[]');
+        }
         $this->WriteAttributeString('SafetyReason', '');
         $this->WriteAttributeBoolean('RealSafetySent', false);
         $this->WriteManualUntil(0);
@@ -265,6 +290,9 @@ trait MarkiseSimulationTrait
         }
         foreach (['OnSince', 'OffSince', 'WindLockUntil', 'RainLockUntil'] as $a) {
             $this->WriteAttributeInteger($a, 0);
+        }
+        foreach (['GustHistory', 'LuxHistory', 'MoveLog'] as $a) {
+            $this->WriteAttributeString($a, '[]');
         }
         $this->WriteAttributeString('SafetyReason', '');
         $this->WriteManualUntil(0);

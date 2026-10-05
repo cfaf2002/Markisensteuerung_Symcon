@@ -299,6 +299,76 @@
                 },
                 {
                     "type": "CheckBox",
+                    "name": "GustTrend",
+                    "caption": "Retract early when gusts rise quickly (before the gust alarm is reached)"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "NumberSpinner",
+                            "name": "GustTrendRise",
+                            "caption": "Rise of at least",
+                            "digits": 1,
+                            "minimum": 0,
+                            "maximum": 200
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "GustTrendMinutes",
+                            "caption": "within",
+                            "suffix": "min",
+                            "minimum": 1,
+                            "maximum": 60
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "GustTrendShare",
+                            "caption": "and gusts at least",
+                            "suffix": "% of the gust alarm",
+                            "minimum": 0,
+                            "maximum": 100
+                        }
+                    ]
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "UseWarning",
+                    "caption": "Retract on official weather warnings (module \"Unwetterwarnung\" with indicator variable)"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "SelectVariable",
+                            "name": "WarningVariableID",
+                            "caption": "Warning level (empty = find automatically)",
+                            "width": "400px",
+                            "validVariableTypes": [
+                                1
+                            ]
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "WarningMinLevel",
+                            "caption": "Retract from level",
+                            "minimum": 1,
+                            "maximum": 4
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Find warning level",
+                            "onClick": "IPS_RequestAction($id, 'FindWarning', 0);"
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "name": "WarningInfo",
+                    "caption": "Levels: 1 = weather warning, 2 = significant weather, 3 = severe weather, 4 = extreme weather. Heat and UV warnings are ignored. If the warning source fails, the awning is not blocked."
+                },
+                {
+                    "type": "CheckBox",
                     "name": "SafetyAlways",
                     "caption": "Safety also when the automatic is switched off"
                 }
@@ -340,6 +410,21 @@
                     "suffix": "min",
                     "minimum": 0,
                     "maximum": 240
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "LuxAverageMinutes",
+                    "caption": "Average the brightness over (0 = off)",
+                    "suffix": "min",
+                    "minimum": 0,
+                    "maximum": 60
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "MaxMovesPerHour",
+                    "caption": "At most automatic sun movements per hour (0 = no limit)",
+                    "minimum": 0,
+                    "maximum": 30
                 },
                 {
                     "type": "NumberSpinner",
@@ -397,6 +482,43 @@
                             "maximum": 90
                         }
                     ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "Location for day/night and sun direction. Empty (0 / 0) = from Core Instances → Location."
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "NumberSpinner",
+                            "name": "Latitude",
+                            "caption": "Latitude",
+                            "suffix": "°",
+                            "digits": 4,
+                            "minimum": -90,
+                            "maximum": 90
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "Longitude",
+                            "caption": "Longitude",
+                            "suffix": "°",
+                            "digits": 4,
+                            "minimum": -180,
+                            "maximum": 180
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Take over from the location module",
+                            "onClick": "IPS_RequestAction($id, 'LocationFromModule', 0);"
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "name": "LocationSource",
+                    "caption": ""
                 },
                 {
                     "type": "Label",
@@ -524,6 +646,48 @@
         },
         {
             "type": "ExpansionPanel",
+            "caption": "Hold (evening mode)",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "With the switch \"Hold\" the awning stays as it is, e.g. to sit outside in the evening. Only wind, gusts, rain, weather warning, frost and sensor faults still retract it."
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "HoldEnabled",
+                    "caption": "Offer the switch \"Hold (evening mode)\""
+                },
+                {
+                    "type": "Label",
+                    "caption": "Hold ends automatically when the terrace door is closed, when the grace period after leaving has expired and at the latest the next morning."
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "SelectVariable",
+                            "name": "DoorVariableID",
+                            "caption": "Terrace door (optional)",
+                            "width": "400px",
+                            "validVariableTypes": [
+                                0,
+                                1
+                            ]
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "DoorClosedValue",
+                            "caption": "Value for \"closed\"",
+                            "minimum": 0,
+                            "maximum": 10
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
             "caption": "Notifications",
             "expanded": false,
             "items": [
@@ -639,6 +803,33 @@
         }
     ],
     "actions": [
+        {
+            "type": "ExpansionPanel",
+            "caption": "Take over from the previous awning script",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Reads the variable IDs, limits and weekdays from your previous script and fills the fields above. The script is only read, never executed. Nothing is saved until you click \"Apply changes\"."
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "SelectScript",
+                            "name": "ImportScriptID",
+                            "caption": "Previous script",
+                            "width": "400px"
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Take over settings",
+                            "onClick": "IPS_RequestAction($id, 'ImportScript', $ImportScriptID);"
+                        }
+                    ]
+                }
+            ]
+        },
         {
             "type": "Label",
             "caption": "",
