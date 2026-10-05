@@ -429,6 +429,13 @@ class Markisensteuerung extends IPSModuleStrict
             return;
         }
 
+        // Anwesenheitsvariable, die unter diese Instanz verschoben wurde: Schalten im Objektbaum oder in der Visualisierung
+        $presence = $this->PresenceActionFor($Ident);
+        if ($presence !== null) {
+            SetValue($presence, (bool) $Value);
+            return;
+        }
+
         throw new InvalidArgumentException('Ungültiger Ident: ' . $Ident);
     }
 

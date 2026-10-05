@@ -1252,6 +1252,22 @@ test('Einstellungs-Kachel: Anwesenheitsschalter', function (): void {
     check(wert(kachel(einstellungen($n)), 'Presence') === null, 'ohne Anwesenheitsvariable kein Schalter');
 });
 
+test('Anwesenheitsvariable unter die Instanz verschoben: Schalter funktioniert trotzdem', function (): void {
+    $m = markise();
+    // Unter einer Instanz ohne eigene Aktion landet die Standardaktion bei der Instanz
+    Sym::$vars[V_PRESENCE]['parent'] = $m->InstanceID;
+    Sym::$vars[V_PRESENCE]['ident'] = '';
+    Sym::$vars[V_PRESENCE]['action'] = true;
+    $s = einstellungen($m);
+    $item = array_values(array_filter(kachel($s)['groups'][3]['items'], static fn ($i) => $i['name'] === 'Presence'))[0];
+    check($item['readOnly'] === false, 'Schalter bedienbar');
+    $s->RequestAction('Set', json_encode(['name' => 'Presence', 'value' => false]));
+    check(Sym::$vars[V_PRESENCE]['value'] === false, 'Wert direkt gesetzt');
+    $m->RequestAction('', true);
+    check(Sym::$vars[V_PRESENCE]['value'] === true, 'Schalten im Objektbaum (Aktion an der Instanz) setzt den Wert');
+    check(throws(fn () => $m->RequestAction('Unbekannt', true)), 'andere Idents weiter abgelehnt');
+});
+
 test('Einstellungs-Kachel: ungültige Eingaben werden abgelehnt', function (): void {
     $m = markise();
     $s = einstellungen($m);

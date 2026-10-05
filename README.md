@@ -439,6 +439,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.3 | 13 | 05.10.2026 | Anwesenheitsvariable, die unter die Instanz verschoben wurde, lässt sich wieder schalten (Kachel, Objektbaum, Visualisierung); Einstellungs-Kachel scrollt nur unterhalb des Titels |
 | 1.3 | 12 | 05.10.2026 | Einstellungs-Kachel lädt beim Öffnen immer frische Werte (nach einem Update fehlten sonst Anwesenheit und Wochentage, bis sich ein Wert änderte) |
 | 1.3 | 11 | 05.10.2026 | Einstellungs-Kachel: Gruppe „Anwesenheit“ mit Schalter für die Anwesenheitsvariable und Karenz, zweispaltiges Layout ohne Lücke |
 | 1.3 | 10 | 05.10.2026 | Zweite Kachel „Markisen Einstellungen“ für Grundwerte, Wochentage und Zeiten; neue Befehle `MARKISE_GetParameters` und `MARKISE_SetParameter` |

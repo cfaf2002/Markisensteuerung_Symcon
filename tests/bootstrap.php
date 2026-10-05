@@ -82,7 +82,7 @@ function GetValueFormatted(int $id): string { return (string) json_encode(Sym::$
 function IPS_GetVariable(int $id): array
 {
     $v = Sym::$vars[$id];
-    return ['VariableID' => $id, 'VariableType' => $v['type'], 'VariableUpdated' => $v['updated'], 'VariableChanged' => $v['updated']];
+    return ['VariableID' => $id, 'VariableType' => $v['type'], 'VariableUpdated' => $v['updated'], 'VariableChanged' => $v['updated'], 'VariableCustomAction' => $v['customAction'] ?? 0];
 }
 
 function HasAction(int $id): bool { return Sym::$vars[$id]['action'] ?? false; }
@@ -159,6 +159,17 @@ function IPS_ApplyChanges(int $id): bool
 }
 
 function IPS_GetName(int $id): string { return 'Markise'; }
+
+function IPS_GetParent(int $id): int { return Sym::$vars[$id]['parent'] ?? 0; }
+
+function IPS_GetObject(int $id): array { return ['ObjectID' => $id, 'ObjectIdent' => Sym::$vars[$id]['ident'] ?? '', 'ParentID' => IPS_GetParent($id)]; }
+
+function SetValue(int $id, mixed $value): bool
+{
+    Sym::$vars[$id]['value'] = $value;
+    Sym::$vars[$id]['updated'] = Sym::$now;
+    return true;
+}
 
 function MARKISE_SetParameter(int $id, string $name, mixed $value): bool { return Sym::$objects[$id]->SetParameter($name, $value); }
 

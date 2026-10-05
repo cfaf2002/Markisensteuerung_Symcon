@@ -124,7 +124,7 @@ trait MarkiseParameterTrait
             'unit'     => '',
             'value'    => (bool) GetValue($target),
             // Ohne Aktion lässt sich die Variable nicht schalten – dann nur anzeigen
-            'readOnly' => !$sim && !HasAction($id),
+            'readOnly' => !$sim && !$this->PresenceDirect($id) && !HasAction($id),
         ];
     }
 
@@ -156,10 +156,36 @@ trait MarkiseParameterTrait
             $this->SetSimValue('SimPresence', $on);
             return;
         }
+        if ($this->PresenceDirect($id)) {
+            SetValue($id, $on);
+            return;
+        }
         if (!HasAction($id)) {
             throw new InvalidArgumentException('Die Anwesenheitsvariable hat keine Aktion.');
         }
         RequestAction($id, $on);
+    }
+
+    /**
+     * Liegt die Anwesenheitsvariable unter dieser Instanz und hat keine eigene Aktion, landet ihre
+     * Standardaktion bei dieser Instanz statt bei der Variable. Dann wird der Wert direkt gesetzt.
+     */
+    private function PresenceDirect(int $id): bool
+    {
+        if (IPS_GetParent($id) !== $this->InstanceID) {
+            return false;
+        }
+        return (int) (IPS_GetVariable($id)['VariableCustomAction'] ?? 0) <= 0;
+    }
+
+    /** Standardaktion einer unter die Instanz verschobenen Anwesenheitsvariable (Objektbaum, Visualisierung) */
+    private function PresenceActionFor(string $ident): ?int
+    {
+        $id = $this->ReadPropertyInteger('PresenceVariableID');
+        if ($id <= 0 || !IPS_VariableExists($id) || !$this->PresenceDirect($id)) {
+            return null;
+        }
+        return IPS_GetObject($id)['ObjectIdent'] === $ident ? $id : null;
     }
 
     /**
