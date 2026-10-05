@@ -215,6 +215,8 @@
             if (d.error) return;
             var ro = !!d.readOnly;
 
+            // ältere Daten ohne Gruppenschlüssel: Wochentage zur letzten Gruppe
+            var timesTitle = (d.groups && d.groups.length) ? d.groups[d.groups.length - 1].title : '';
             var cols = [el('div', 'col'), el('div', 'col')];
             grid.appendChild(cols[0]);
             grid.appendChild(cols[1]);
@@ -230,7 +232,7 @@
                     else rows.appendChild(numberRow(item, ro));
                 });
                 // Wochentage gehören zu „Zeiten“
-                if (g.key === 'Times' && d.weekdays) {
+                if ((g.key ? g.key === 'Times' : g.title === timesTitle) && d.weekdays) {
                     var title = el('div', 'row');
                     title.appendChild(el('span', 'lbl', d.weekdaysTitle || ''));
                     rows.insertBefore(title, rows.firstChild);

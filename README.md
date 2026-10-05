@@ -439,6 +439,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.3 | 12 | 05.10.2026 | Einstellungs-Kachel lädt beim Öffnen immer frische Werte (nach einem Update fehlten sonst Anwesenheit und Wochentage, bis sich ein Wert änderte) |
 | 1.3 | 11 | 05.10.2026 | Einstellungs-Kachel: Gruppe „Anwesenheit“ mit Schalter für die Anwesenheitsvariable und Karenz, zweispaltiges Layout ohne Lücke |
 | 1.3 | 10 | 05.10.2026 | Zweite Kachel „Markisen Einstellungen“ für Grundwerte, Wochentage und Zeiten; neue Befehle `MARKISE_GetParameters` und `MARKISE_SetParameter` |
 | 1.2 | 9 | 05.10.2026 | Kachel: Ampel bei Helligkeit und Temperatur berücksichtigt die Hysterese (grau statt rot zwischen Ein- und Ausfahrgrenze) |

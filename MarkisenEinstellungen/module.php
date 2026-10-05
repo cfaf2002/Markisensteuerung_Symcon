@@ -105,6 +105,8 @@ class MarkisenEinstellungen extends IPSModuleStrict
     public function GetVisualizationTile(): string
     {
         $html = (string) file_get_contents(__DIR__ . '/tile.html');
+        // Immer frische Werte: nach einem Modul-Update können die gespeicherten Startdaten veraltet sein
+        $this->PushTile();
         $data = json_decode($this->ReadAttributeString('TileData'), true) ?: [];
         // JSON_HEX_* verhindert, dass Werte wie "</script>" das Skript der Kachel beenden
         $json = json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
