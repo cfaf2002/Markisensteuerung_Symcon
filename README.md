@@ -446,6 +446,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.5 | 24 | 05.10.2026 | Himmel füllt die Kachel immer lückenlos (kein grauer Streifen mehr am Rand); Sonne rückt auf flachen Kacheln unter den Automatik-Schalter und auf dem Handy rechts unter die große Anzeige |
 | 1.5 | 23 | 05.10.2026 | Große Zustandsanzeige wird unten nicht mehr abgeschnitten (g, p, y); Wolken und Vögel ziehen sichtbar schneller; ob sich die Deko bewegt, entscheidet nur noch die Option „Animationen reduzieren“ der Instanz, nicht die Systemeinstellung „Animationseffekte“ |
 | 1.5 | 22 | 05.10.2026 | Unter dem Garten wieder der graue Kachel-Hintergrund für Werte und Tasten; Himmel und Wetter enden mit dem Garten |
 | 1.5 | 21 | 05.10.2026 | Steuer-Kachel neu im Stil der Pegelstand-Kachel: Szene über die ganze Kachel, großer Zustand, Status-Pille, weiche Wolken, Sonne mit Strahlenkranz, Werte als Glas-Chips, Tasten auf der Wiese; passt sich Handy, Tablet und flachen Monitor-Kacheln an |

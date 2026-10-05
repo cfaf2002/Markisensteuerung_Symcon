@@ -53,6 +53,7 @@
     .layer { position: absolute; inset: 0; pointer-events: none; }
     .layer svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
     .ground { --below: 0px; }
+    .sky { overflow: hidden; }
     .ground svg { top: 0; bottom: auto; height: calc(100% - var(--below)); }
     /* Unter dem Garten bleibt der graue Hintergrund der Kachel; dort liegen Werte und Tasten */
     .ground svg { border-bottom-left-radius: 0; }
@@ -278,12 +279,12 @@
                 <radialGradient id="puff"><stop offset="0" stop-color="#f4f7fa" stop-opacity=".55"></stop><stop offset=".55" stop-color="#dfe6ee" stop-opacity=".32"></stop><stop offset="1" stop-color="#dfe6ee" stop-opacity="0"></stop></radialGradient>
                 <radialGradient id="puffDark"><stop offset="0" stop-color="#6d7885" stop-opacity=".8"></stop><stop offset=".55" stop-color="#55606c" stop-opacity=".5"></stop><stop offset="1" stop-color="#55606c" stop-opacity="0"></stop></radialGradient>
             </defs>
-            <rect class="tint tint-day" x="-200" y="-200" width="800" height="640" fill="url(#tDay)"></rect>
-            <rect class="tint tint-eve" x="-200" y="-200" width="800" height="640" fill="url(#tEve)"></rect>
-            <rect class="tint tint-grey" x="-200" y="-200" width="800" height="640" fill="url(#tGrey)"></rect>
-            <rect class="tint tint-night" x="-200" y="-200" width="800" height="640" fill="url(#tNight)"></rect>
-            <rect class="tint tint-storm" x="-200" y="-200" width="800" height="640" fill="url(#tStorm)"></rect>
-            <rect class="tint tint-cold" x="-200" y="-200" width="800" height="640" fill="url(#tCold)"></rect>
+            <rect class="tint tint-day" x="-3000" y="-600" width="6000" height="1400" fill="url(#tDay)"></rect>
+            <rect class="tint tint-eve" x="-3000" y="-600" width="6000" height="1400" fill="url(#tEve)"></rect>
+            <rect class="tint tint-grey" x="-3000" y="-600" width="6000" height="1400" fill="url(#tGrey)"></rect>
+            <rect class="tint tint-night" x="-3000" y="-600" width="6000" height="1400" fill="url(#tNight)"></rect>
+            <rect class="tint tint-storm" x="-3000" y="-600" width="6000" height="1400" fill="url(#tStorm)"></rect>
+            <rect class="tint tint-cold" x="-3000" y="-600" width="6000" height="1400" fill="url(#tCold)"></rect>
 
             <g class="wx stars">
                 <circle cx="120" cy="30" r=".9"></circle><circle cx="170" cy="62" r=".7"></circle><circle cx="215" cy="22" r="1"></circle>
@@ -685,9 +686,22 @@
             scene.setAttribute('viewBox', x + ' 0 ' + Math.round(w) + ' 140');
             scene.setAttribute('preserveAspectRatio', w >= 1400 ? 'xMinYMax slice' : 'xMinYMax meet');
             // Hohe Kachel (Handy): Himmel nach Breite einpassen, damit die Sonne oben rechts bleibt und nicht hinter dem Text
-            var tall = tr.width / tr.height < 400 / 240;
-            $('skysvg').setAttribute('viewBox', tall ? '100 -40 300 320' : '0 0 400 240');
-            $('skysvg').setAttribute('preserveAspectRatio', tall ? 'xMaxYMin meet' : 'xMaxYMin slice');
+            // Himmel genau passend zuschneiden (gleiches Seitenverhältnis wie die Fläche, keine Lücken).
+            // Breit: rechter Rand fest, Sonne oben rechts. Schmal (Handy): Sonne rechts unterhalb der großen Anzeige.
+            var skyH = Math.max(1, tr.height - below);
+            var vw, vh, x0, y0, sc;
+            if (tr.width >= 600) {
+                vh = 240; sc = skyH / vh; vw = tr.width / sc; x0 = 400 - vw;
+                // Sonne unter den Automatik-Schalter rücken, wenn die Kachel flach ist
+                var headBottom = document.querySelector('.head').getBoundingClientRect().bottom - tr.top;
+                y0 = Math.min(0, 64 - headBottom / sc - 34);
+            } else {
+                vw = 300; sc = tr.width / vw; vh = skyH / sc; x0 = 100;
+                var heroBottom = hr.bottom - tr.top;
+                y0 = Math.min(0, 64 - heroBottom / sc - 30);
+            }
+            $('skysvg').setAttribute('viewBox', x0.toFixed(1) + ' ' + y0.toFixed(1) + ' ' + vw.toFixed(1) + ' ' + vh.toFixed(1));
+            $('skysvg').setAttribute('preserveAspectRatio', 'none');
         }
         if (window.ResizeObserver) {
             new ResizeObserver(layout).observe(tile);
