@@ -3,8 +3,11 @@
     Copyright (c) 2026 Armin Frohwerk · MIT-Lizenz (siehe LICENSE)
     SPDX-License-Identifier: MIT
 
+    Aufbau (von hinten nach vorn): Himmel über die ganze Kachel · Garten mit Haus und Markise ·
+    Wetter davor (Regen, Schnee, Wind, Blitz) · Anzeige und Tasten.
     Sicherheit: Alle Werte werden per textContent gesetzt, nie als HTML.
-    Leistung:   Keine externen Dateien, Animationen nur bei Bewegung und nur, solange die Kachel sichtbar ist.
+    Leistung:   Keine externen Dateien, keine Filter auf bewegten Teilen (weiche Wolken über Verläufe),
+                Animationen ruhen, solange die Kachel nicht sichtbar ist.
 -->
 <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
@@ -15,27 +18,22 @@
         --accent: var(--accent-color, #e2a63b);
         --canvas-a: var(--accent);
         --canvas-b: #fbf6ea;
-        --muted: color-mix(in srgb, var(--fg) 62%, transparent);
-        --line: color-mix(in srgb, var(--fg) 14%, transparent);
-        --well: color-mix(in srgb, var(--fg) 7%, transparent);
+        --muted: color-mix(in srgb, var(--fg) 70%, transparent);
+        --glass: rgba(18, 22, 28, .42);
+        --glass-line: rgba(255, 255, 255, .12);
         --ok: #34b36b;
         --bad: #e5484d;
         --info: #4b8ef0;
         --off: #8796a5;
         --tone: var(--info);
         --e: 0;                 /* Ausfahrgrad 0..1 */
-        --travel: 2s;
+        --travel: 1.2s;
 
         position: relative;
         box-sizing: border-box;
         width: 100%;
         height: 100%;
-        /* Oben bleibt Platz für Titel und Symbole, die die Kachel-Visualisierung selbst zeichnet */
-        --hdr: clamp(40px, 11cqmin, 54px);
-        padding: var(--hdr) clamp(8px, 4cqmin, 16px) clamp(8px, 4cqmin, 16px);
-        display: flex;
-        flex-direction: column;
-        gap: clamp(6px, 2.5cqmin, 10px);
+        overflow: hidden;
         container-type: size;
         color: var(--fg);
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -44,123 +42,85 @@
         -webkit-font-smoothing: antialiased;
         -webkit-tap-highlight-color: transparent;
     }
-    #tile.theme-dark  { --fg: #eef3f7; --accent: #e2a63b; background: linear-gradient(180deg, #1b2a38, #142029); border-radius: inherit; }
-    #tile.theme-light { --fg: #1d2b36; --accent: #c98a1c; background: linear-gradient(180deg, #f4f8fb, #e6eef4); border-radius: inherit; }
+    #tile.theme-dark  { --fg: #eef3f7; --accent: #e2a63b; background: #1b2530; border-radius: inherit; }
+    #tile.theme-light { --fg: #1d2b36; --accent: #c98a1c; --glass: rgba(255, 255, 255, .55); --glass-line: rgba(0, 0, 0, .1); background: #e9eef3; border-radius: inherit; }
 
     #tile.tone-ok   { --tone: var(--ok); }
     #tile.tone-bad  { --tone: var(--bad); }
     #tile.tone-off  { --tone: var(--off); }
 
-    /* ---------- Kopf ---------- */
-    .head { display: flex; align-items: center; gap: 8px; min-height: 28px; }
-    .status {
-        display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1;
-        font-size: 15px; font-weight: 600;
-    }
-    .status .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--tone); flex: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 22%, transparent); }
-    #tile.tone-bad .status .dot { animation: pulse 1.6s ease-in-out infinite; }
-    .status span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* ---------- Ebenen ---------- */
+    .layer { position: absolute; inset: 0; pointer-events: none; }
+    .layer svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
+    .ground { --below: 0px; }
+    .ground svg { top: 0; bottom: auto; height: calc(100% - var(--below)); }
+    /* Wiese unter dem Garten, auf ihr liegen Werte und Tasten */
+    .ground::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--below) + 1px); background: linear-gradient(180deg, #4f9440, #3f7a33); }
+    #tile.wx-night .ground::after { background: linear-gradient(180deg, #2c4a2a, #223a21); }
+    #tile.wx-rain .ground::after, #tile.wx-storm .ground::after, #tile.wx-wind .ground::after { background: linear-gradient(180deg, #44803a, #36682e); }
 
-    .auto {
-        flex: none; display: flex; align-items: center; gap: 6px;
-        border: 0; background: none; color: inherit; font: inherit; font-size: 12px; cursor: pointer; padding: 4px 0;
-    }
-    .auto .track { width: 30px; height: 18px; border-radius: 9px; background: var(--line); position: relative; transition: background .2s; }
-    .auto .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--fg); transition: transform .2s; }
-    .auto[aria-checked="true"] .track { background: var(--accent); }
-    .auto[aria-checked="true"] .track::after { transform: translateX(12px); background: #fff; }
+    /* Himmel: zarte Tönung über dem Hintergrund der Visualisierung, je nach Wetter und Tageszeit */
+    .tint { opacity: 0; transition: opacity 1.4s ease; }
+    #tile.wx-sun .tint-day, #tile.wx-cloud .tint-grey, #tile.wx-night .tint-night,
+    #tile.wx-rain .tint-storm, #tile.wx-wind .tint-storm, #tile.wx-storm .tint-storm, #tile.wx-frost .tint-cold { opacity: 1; }
+    #tile.wx-sun.eve .tint-day { opacity: 0; }
+    #tile.wx-sun.eve .tint-eve { opacity: 1; }
 
-    /* ---------- Bühne: Garten-Panorama mit Haus, Markise und Wetter ---------- */
-    .stage {
-        position: relative; flex: 1 1 auto; min-height: 70px;
-        border-radius: 14px; overflow: hidden;
-        box-shadow: inset 0 0 0 1px var(--line);
-        /* Fläche über der Szene bei hohen, schmalen Kacheln: gleiche Farbe wie der obere Himmel */
-        background: #3f8fe0; transition: background-color 1.2s ease;
-    }
-    #tile.wx-sun.eve .stage { background: #4a5fa8; }
-    #tile.wx-cloud .stage { background: #7f97ae; }
-    #tile.wx-night .stage { background: #07122a; }
-    #tile.wx-rain .stage, #tile.wx-wind .stage, #tile.wx-storm .stage { background: #3d4a58; }
-    #tile.wx-frost .stage { background: #9fb7cc; }
-    .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-
-    /* Himmel: weich überblendet je nach Wetter und Tageszeit */
-    .sky { opacity: 0; transition: opacity 1.2s ease; }
-    #tile.wx-sun .sky-day, #tile.wx-cloud .sky-grey, #tile.wx-night .sky-night,
-    #tile.wx-rain .sky-storm, #tile.wx-wind .sky-storm, #tile.wx-storm .sky-storm, #tile.wx-frost .sky-cold { opacity: 1; }
-    #tile.wx-sun.eve .sky-day { opacity: 0; }
-    #tile.wx-sun.eve .sky-eve { opacity: 1; }
-
-    .wx { opacity: 0; transition: opacity .9s ease; }
-    #tile.wx-sun .sun, #tile.wx-sun .birds, #tile.wx-sun .fair, #tile.wx-cloud .fair, #tile.wx-cloud .sun.behind,
+    .wx { opacity: 0; transition: opacity 1s ease; }
+    #tile.wx-sun .sun, #tile.wx-sun .birds, #tile.wx-sun .fair, #tile.wx-cloud .fair, #tile.wx-cloud .sun,
     #tile.wx-cloud .overcast, #tile.wx-night .moon, #tile.wx-night .stars,
     #tile.wx-rain .storm, #tile.wx-rain .rain, #tile.wx-storm .storm, #tile.wx-storm .rain, #tile.wx-storm .bolt,
     #tile.wx-wind .storm, #tile.wx-wind .wind, #tile.wx-frost .overcast, #tile.wx-frost .snow { opacity: 1; }
-    #tile.wx-cloud .sun.behind { opacity: .55; }
+    #tile.wx-cloud .sun { opacity: .45; }
 
-    /* Sonne */
-    .sun .glow { fill: url(#sunGlow); transform-box: fill-box; transform-origin: center; animation: breathe 6s ease-in-out infinite; }
+    /* Sonne mit feinem Strahlenkranz und weichem Glühen */
+    .sun .glow { fill: url(#sunGlow); transform-box: fill-box; transform-origin: center; animation: breathe 7s ease-in-out infinite; }
+    .sun .rays { stroke: #ffe39a; stroke-width: 1.1; stroke-linecap: round; opacity: .75; transform-box: fill-box; transform-origin: center; animation: spin 90s linear infinite; }
     .sun .core { fill: url(#sunCore); }
-    .sun .rays { transform-box: fill-box; transform-origin: center; animation: spin 60s linear infinite; }
-    .sun .rays path { stroke: #ffd36b; stroke-width: 2.4; stroke-linecap: round; opacity: .85; }
 
-    /* Wolken ziehen langsam durch; jede Wolke mit eigener Geschwindigkeit */
-    .cl { fill: url(#cloudWhite); }
-    .cl.dark { fill: url(#cloudDark); }
+    /* Weiche Wolken aus Verläufen (ohne teure Filter) */
     .drift { animation: drift linear infinite; }
-    .d1 { animation-duration: 95s; animation-delay: -20s; }
-    .d2 { animation-duration: 140s; animation-delay: -75s; }
-    .d3 { animation-duration: 120s; animation-delay: -40s; }
-    .d4 { animation-duration: 70s; animation-delay: -10s; }
-    .d5 { animation-duration: 85s; animation-delay: -55s; }
+    .d1 { animation-duration: 120s; animation-delay: -30s; }
+    .d2 { animation-duration: 170s; animation-delay: -95s; }
+    .d3 { animation-duration: 140s; animation-delay: -60s; }
+    .d4 { animation-duration: 95s; animation-delay: -15s; }
 
-    /* Vögel: fliegen quer über den Himmel und schlagen mit den Flügeln */
     .bird { animation: fly linear infinite; }
-    .bird path { fill: none; stroke: #2d3a48; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; transform-box: fill-box; transform-origin: center; animation: flap .55s ease-in-out infinite alternate; }
-    .b1 { animation-duration: 26s; }
-    .b2 { animation-duration: 31s; animation-delay: -9s; }
+    .bird path { fill: none; stroke: color-mix(in srgb, var(--fg) 70%, #000); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; transform-box: fill-box; transform-origin: center; animation: flap .55s ease-in-out infinite alternate; }
+    .b1 { animation-duration: 28s; }
+    .b2 { animation-duration: 34s; animation-delay: -11s; }
     .b2 path { animation-delay: -.2s; }
-    .b3 { animation-duration: 29s; animation-delay: -17s; }
+    .b3 { animation-duration: 31s; animation-delay: -19s; }
     .b3 path { animation-delay: -.35s; }
 
-    /* Nacht */
     .moon .disc { fill: #f3efe0; }
     .moon .halo { fill: url(#moonGlow); }
     .stars circle { fill: #fff; animation: twinkle 3s ease-in-out infinite alternate; }
     .stars circle:nth-child(2n) { animation-delay: -1.2s; }
     .stars circle:nth-child(3n) { animation-delay: -2.1s; }
 
-    /* Regen, Wind, Schnee, Gewitter */
-    .rain line { stroke: #9cc8f5; stroke-width: 1.3; stroke-linecap: round; animation: drop .8s linear infinite; }
+    .rain line { stroke: #9cc8f5; stroke-width: 1.2; stroke-linecap: round; opacity: .8; animation: drop .8s linear infinite; }
     .rain line:nth-child(3n) { animation-delay: -.25s; }
     .rain line:nth-child(3n+1) { animation-delay: -.55s; }
-    .wind path { fill: none; stroke: rgba(255, 255, 255, .75); stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 40 80; animation: gust 2.2s linear infinite; }
+    .wind path { fill: none; stroke: rgba(255, 255, 255, .6); stroke-width: 1.4; stroke-linecap: round; stroke-dasharray: 40 80; animation: gust 2.2s linear infinite; }
     .wind path:nth-child(2) { animation-delay: -.7s; }
     .wind path:nth-child(3) { animation-delay: -1.4s; }
-    .wind .leaf { fill: #7fb04a; stroke: none; animation: leaf 3.5s linear infinite; stroke-dasharray: none; }
+    .wind .leaf { fill: #7fb04a; stroke: none; stroke-dasharray: none; animation: leaf 3.5s linear infinite; }
     .wind .leaf:nth-of-type(2) { animation-delay: -1.7s; }
-    .snow circle { fill: #fff; animation: snow 4s linear infinite; }
-    .snow circle:nth-child(2n) { animation-duration: 5.5s; animation-delay: -2s; }
+    .snow circle { fill: #fff; animation: snow 5s linear infinite; }
+    .snow circle:nth-child(2n) { animation-duration: 6.5s; animation-delay: -2s; }
     .snow circle:nth-child(3n) { animation-delay: -3.1s; }
-    .bolt path { fill: #ffe066; filter: drop-shadow(0 0 4px #fff3b0); animation: flash 4s steps(1) infinite; }
+    .bolt path { fill: #ffe066; filter: drop-shadow(0 0 6px #fff3b0); animation: flash 4s steps(1) infinite; }
 
-    /* Haus und Garten */
+    /* Garten mit Haus und Markise */
     .wall { fill: url(#wallGrad); }
     .siding { stroke: rgba(80, 60, 40, .12); stroke-width: 1; }
     .window-frame { fill: #f4f1ea; }
     .window-glass { fill: url(#glass); }
     .door-frame { fill: #3b2f26; }
+    .door-inside { fill: #2a2119; }
     .door-leaf { fill: url(#doorGrad); transform-box: fill-box; transform-origin: left center; transition: transform 1s ease; }
     #tile.door-open .door-leaf { transform: scaleX(.28); }
-    .door-inside { fill: #2a2119; }
-
-    /* Nacht und Unwetter dunkeln die Szene ab, nachts leuchtet das Fenster */
-    .dimmer { fill: #081226; opacity: 0; transition: opacity 1.2s ease; pointer-events: none; }
-    #tile.wx-night .dimmer { opacity: .5; }
-    #tile.wx-rain .dimmer, #tile.wx-storm .dimmer, #tile.wx-wind .dimmer { opacity: .18; }
-    .window-glow { fill: #ffcf73; opacity: 0; transition: opacity 1.2s ease; filter: drop-shadow(0 0 3px #ffb347); }
-    #tile.wx-night .window-glow { opacity: .92; }
     .grass { fill: url(#grassGrad); }
     .terrace { fill: #b9a58d; }
     .terrace-line { stroke: rgba(70, 55, 40, .25); stroke-width: 1; }
@@ -168,8 +128,12 @@
     .plant-pot { fill: #c46a3a; }
     .plant { fill: #4f9a45; }
     .flower { fill: #f28fb1; }
+    .dimmer { opacity: 0; transition: opacity 1.2s ease; }
+    #tile.wx-night .dimmer { opacity: .5; }
+    #tile.wx-rain .dimmer, #tile.wx-storm .dimmer, #tile.wx-wind .dimmer { opacity: .2; }
+    .window-glow { fill: #ffcf73; opacity: 0; transition: opacity 1.2s ease; filter: drop-shadow(0 0 3px #ffb347); }
+    #tile.wx-night .window-glow { opacity: .92; }
 
-    /* Markise */
     .canvas-g {
         transform-box: view-box; transform-origin: 92px 44px;
         transform: scaleX(calc(.03 + var(--e) * .97));
@@ -182,129 +146,181 @@
     .cloth-under { fill: rgba(20, 30, 40, .35); }
     .cloth-shine { fill: rgba(255, 255, 255, .28); }
     .cassette { fill: #e8ecef; stroke: rgba(0, 0, 0, .15); stroke-width: .6; }
-    .shade { fill: rgba(20, 30, 40, .28); transform-box: view-box; transform-origin: 92px 120px; transform: scaleX(calc(var(--e))); transition: transform var(--travel) linear; }
+    .shade { fill: rgba(20, 30, 40, .28); transform-box: view-box; transform-origin: 92px 120px; transform: scaleX(var(--e)); transition: transform var(--travel) linear; }
     #tile.wx-night .shade, #tile.wx-cloud .shade, #tile.wx-rain .shade, #tile.wx-storm .shade, #tile.wx-wind .shade, #tile.wx-frost .shade { opacity: .25; }
+    #tile.simulation .canvas-g { opacity: min(.75, calc(var(--e) * 6)); }
 
-    /* ---------- Text und Fortschritt ---------- */
-    .reason { color: var(--muted); font-size: 12.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .timer { display: none; gap: 4px; flex-direction: column; }
+    /* ---------- Anzeige ---------- */
+    .ui {
+        position: absolute; inset: 0; display: flex; flex-direction: column;
+        /* oben Platz für Titel und Symbole der Kachel-Visualisierung */
+        padding: clamp(40px, 11cqmin, 54px) clamp(10px, 4cqmin, 20px) clamp(10px, 3.5cqmin, 16px);
+        gap: clamp(4px, 1.6cqmin, 8px);
+    }
+    .ui > * { position: relative; }
+    .shadow { text-shadow: 0 1px 2px rgba(0, 0, 0, .55), 0 0 12px rgba(0, 0, 0, .35); }
+    #tile.theme-light .shadow { text-shadow: 0 1px 2px rgba(255, 255, 255, .7); }
+
+    .head { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-height: 24px; }
+    .auto {
+        flex: none; display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; border-radius: 999px;
+        border: 1px solid var(--glass-line); background: var(--glass); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+        color: inherit; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .auto .track { width: 32px; height: 18px; border-radius: 9px; background: rgba(255, 255, 255, .22); position: relative; transition: background .2s; }
+    .auto .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .2s; }
+    .auto[aria-checked="true"] .track { background: var(--accent); }
+    .auto[aria-checked="true"] .track::after { transform: translateX(14px); }
+
+    .hero { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+    .big { font-size: clamp(30px, 11cqmin, 72px); font-weight: 800; line-height: 1; letter-spacing: -.02em; }
+    .big small { font-size: .38em; font-weight: 600; margin-left: .3em; letter-spacing: 0; color: var(--muted); }
+    .pill {
+        display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 6px 14px 6px 10px; border-radius: 999px;
+        background: var(--glass); border: 1px solid var(--glass-line); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+        font-size: clamp(13px, 3.4cqmin, 17px); font-weight: 700;
+    }
+    .pill .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--tone); flex: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 28%, transparent); }
+    #tile.tone-bad .pill .dot { animation: pulse 1.6s ease-in-out infinite; }
+    .pill span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .reason { font-size: clamp(12px, 3cqmin, 15px); color: var(--fg); opacity: .9; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+    .timer { display: none; flex-direction: column; gap: 4px; max-width: 520px; padding: 8px 12px; border-radius: 12px; background: var(--glass); border: 1px solid var(--glass-line); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
     .timer.show { display: flex; }
-    .timer .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; }
-    .timer .row b { font-variant-numeric: tabular-nums; font-weight: 600; }
-    .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+    .timer .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12.5px; }
+    .timer .row b { font-variant-numeric: tabular-nums; }
+    .bar { height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .18); overflow: hidden; }
     .bar i { display: block; height: 100%; width: 0; background: var(--tone); transition: width 1s linear; }
     .links { display: flex; gap: 12px; flex-wrap: wrap; }
-    .link { border: 0; background: none; padding: 2px 0; color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+    .link { border: 0; background: none; padding: 2px 0; color: var(--accent); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 
-    /* ---------- Sensoren (nur große Kacheln) ---------- */
-    .sensors { display: none; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
-    .sensors li { display: grid; grid-template-columns: 1fr auto 16px; gap: 8px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
-    .sensors .lbl small { color: var(--muted); margin-left: 6px; }
-    .sensors .val { font-variant-numeric: tabular-nums; font-weight: 600; }
-    .sensors .mark { width: 8px; height: 8px; border-radius: 50%; justify-self: end; align-self: center; background: var(--ok); }
-    .sensors .mark.no { background: var(--bad); }
-    .sensors .mark.na { background: var(--off); }
+    /* Platz für den Garten; die Szene selbst liegt als Ebene darunter */
+    .spacer { flex: 1 1 auto; min-height: 0; }
 
-    /* ---------- Bedienung ---------- */
+    .chips { display: none; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+    .chips li {
+        display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
+        background: var(--glass); border: 1px solid var(--glass-line); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+        font-size: 12px; white-space: nowrap;
+    }
+    .chips .lbl { color: var(--muted); }
+    .chips .val { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .chips .mark { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+    .chips .mark.no { background: var(--bad); }
+    .chips .mark.na { background: var(--off); }
+
     .ctrl { display: flex; gap: 6px; min-width: 0; }
     .ctrl button {
-        flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px;
-        border: 1px solid var(--line); border-radius: 10px; background: var(--well); color: inherit;
-        font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 0 6px;
+        flex: 1; min-width: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px;
+        border: 1px solid var(--glass-line); border-radius: 12px; background: var(--glass); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+        color: inherit; font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; padding: 0 8px;
     }
+    .ctrl button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ctrl button svg { width: 14px; height: 14px; flex: none; }
-    .ctrl button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, transparent); }
-    .ctrl button:disabled { opacity: .4; cursor: not-allowed; }
+    .ctrl button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 38%, rgba(18, 22, 28, .45)); }
+    .ctrl button:disabled { opacity: .45; cursor: not-allowed; }
     .ctrl button:active:not(:disabled) { transform: translateY(1px); }
     button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     #stop[hidden], #hold[hidden] { display: none; }
-    #hold { flex: 0 0 auto; padding: 0 10px; }
+    #hold { flex: 0 0 auto; }
 
     .sim {
-        display: none; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        display: none; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 700;
         color: #7a4b00; background: repeating-linear-gradient(-45deg, #ffd166, #ffd166 8px, #ffc94a 8px, #ffc94a 16px);
     }
-    #tile.simulation .sim { display: flex; }
-    .sim span { overflow: hidden; text-overflow: ellipsis; }
-    #tile.simulation .canvas-g { opacity: min(.75, calc(var(--e) * 6)); }
+    #tile.simulation .sim { display: inline-flex; }
 
-    .error { display: none; font-size: 13px; }
+    .error { display: none; font-size: 14px; max-width: 520px; padding: 10px 14px; border-radius: 12px; background: var(--glass); }
     #tile.has-error .error { display: block; }
-    #tile.has-error .stage, #tile.has-error .ctrl, #tile.has-error .timer, #tile.has-error .reason,
-    #tile.has-error .sensors, #tile.has-error .sim { display: none !important; }
+    #tile.has-error .hero, #tile.has-error .ctrl, #tile.has-error .timer, #tile.has-error .chips, #tile.has-error .sim, #tile.has-error .ground { display: none !important; }
 
     /* ---------- Größen ---------- */
-    @container (min-height: 340px) and (min-width: 260px) {
-        .sensors { display: block; }
-    }
-    @container (max-height: 210px) {
-        .reason { -webkit-line-clamp: 1; }
-        .links { display: none; }
-    }
-    /* Handy hochkant: Stopp und Halten nur als Symbol, damit alle vier Tasten passen */
-    .ctrl button { min-width: 0; overflow: hidden; }
-    .ctrl button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    @container (min-height: 380px) and (min-width: 300px) { .chips { display: flex; } }
     @container (max-width: 520px) {
         #stop, #hold { flex: 0 0 44px; }
         #stop span, #hold span { display: none; }
     }
-    @container (max-width: 300px) {
-        .ctrl button span { display: none; }
-    }
-    @container (max-height: 150px) or (max-width: 170px) {
-        .stage, .reason, .timer { display: none; }
-        .ctrl button span { display: none; }
-        .auto .txt { display: none; }
-        #tile.has-error .error { display: none; }
-    }
+    @container (max-width: 300px) { .ctrl button span { display: none; } }
+    @container (max-height: 230px) { .reason, .links { display: none; } }
+    @container (max-height: 160px) or (max-width: 170px) { .hero .big, .reason, .timer { display: none; } }
 
     /* ---------- Ruhe ---------- */
-    #tile.paused *, #tile.reduce * { animation-play-state: paused !important; }
-    /* „Animationen reduzieren“ hält nur die Deko an (Wolken, Vögel, Regen …).
-       Das Aus- und Einfahren ist eine Information und läuft immer in der Fahrzeit – Tuch und Schatten gemeinsam. */
+    #tile.paused *, #tile.reduce .layer * { animation-play-state: paused !important; }
+    /* „Bewegung reduzieren“: Deko steht, das Aus- und Einfahren läuft weiter in der Fahrzeit */
     @media (prefers-reduced-motion: reduce) {
         #tile * { animation: none !important; }
-        #tile .sky, #tile .wx, #tile .dimmer, #tile .window-glow { transition: none !important; }
+        #tile .tint, #tile .wx, #tile .dimmer, #tile .window-glow { transition: none !important; }
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes breathe { 50% { transform: scale(1.08); opacity: .85; } }
-    @keyframes drift { from { transform: translateX(-140px); } to { transform: translateX(var(--sw, 560px)); } }
+    @keyframes breathe { 50% { transform: scale(1.06); opacity: .85; } }
+    @keyframes drift { from { transform: translateX(-160px); } to { transform: translateX(560px); } }
     @keyframes fly { from { transform: translate(-40px, 0); } 50% { transform: translate(220px, -10px); } to { transform: translate(480px, 4px); } }
     @keyframes flap { from { transform: scaleY(1); } to { transform: scaleY(-.55); } }
     @keyframes twinkle { from { opacity: .25; } to { opacity: 1; } }
-    @keyframes snow { from { transform: translate(0, -20px); opacity: 0; } 15% { opacity: 1; } to { transform: translate(-12px, 120px); opacity: .2; } }
-    @keyframes leaf { from { transform: translate(-60px, 0) rotate(0); opacity: 0; } 15% { opacity: 1; } to { transform: translate(440px, 30px) rotate(720deg); opacity: 0; } }
-    @keyframes flash { 0%, 100% { opacity: 0; } 62% { opacity: 1; } 64% { opacity: 0; } 67% { opacity: 1; } 70% { opacity: 0; } }
-    @keyframes pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--tone) 10%, transparent); } }
+    @keyframes pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--tone) 12%, transparent); } }
     @keyframes gust { from { stroke-dashoffset: 120; } to { stroke-dashoffset: 0; } }
-    @keyframes drop { from { transform: translate(0, -10px); opacity: 0; } 20% { opacity: 1; } to { transform: translate(-6px, 70px); opacity: 0; } }
+    @keyframes drop { from { transform: translate(0, -20px); opacity: 0; } 20% { opacity: 1; } to { transform: translate(-8px, 160px); opacity: 0; } }
+    @keyframes snow { from { transform: translate(0, -20px); opacity: 0; } 15% { opacity: 1; } to { transform: translate(-14px, 220px); opacity: .2; } }
+    @keyframes leaf { from { transform: translate(-60px, 0) rotate(0); opacity: 0; } 15% { opacity: 1; } to { transform: translate(440px, 40px) rotate(720deg); opacity: 0; } }
+    @keyframes flash { 0%, 100% { opacity: 0; } 62% { opacity: 1; } 64% { opacity: 0; } 67% { opacity: 1; } 70% { opacity: 0; } }
 </style>
 
 <div id="tile" class="tone-info">
-    <div class="head">
-        <div class="status" role="status" aria-live="polite"><i class="dot"></i><span id="statusText">…</span></div>
-        <button class="auto" id="auto" role="switch" aria-checked="false"><span class="txt" data-t="Automatic">Automatic</span><i class="track"></i></button>
+    <!-- Himmel über die ganze Kachel -->
+    <div class="layer sky" aria-hidden="true">
+        <svg id="skysvg" viewBox="0 0 400 240" preserveAspectRatio="xMaxYMin slice">
+            <defs>
+                <linearGradient id="tDay" gradientUnits="userSpaceOnUse" x1="0" y1="-40" x2="0" y2="300"><stop offset="0" stop-color="#3a86d8" stop-opacity=".55"></stop><stop offset="1" stop-color="#3a86d8" stop-opacity="0"></stop></linearGradient>
+                <linearGradient id="tEve" gradientUnits="userSpaceOnUse" x1="0" y1="-40" x2="0" y2="300"><stop offset="0" stop-color="#5a4fa0" stop-opacity=".5"></stop><stop offset=".6" stop-color="#f08a5d" stop-opacity=".35"></stop><stop offset="1" stop-color="#ffd18a" stop-opacity="0"></stop></linearGradient>
+                <linearGradient id="tGrey" gradientUnits="userSpaceOnUse" x1="0" y1="-40" x2="0" y2="300"><stop offset="0" stop-color="#7f97ae" stop-opacity=".45"></stop><stop offset="1" stop-color="#7f97ae" stop-opacity="0"></stop></linearGradient>
+                <linearGradient id="tNight" gradientUnits="userSpaceOnUse" x1="0" y1="-40" x2="0" y2="300"><stop offset="0" stop-color="#06102a" stop-opacity=".75"></stop><stop offset="1" stop-color="#1c3557" stop-opacity=".1"></stop></linearGradient>
+                <linearGradient id="tStorm" gradientUnits="userSpaceOnUse" x1="0" y1="-40" x2="0" y2="300"><stop offset="0" stop-color="#2c3540" stop-opacity=".7"></stop><stop offset="1" stop-color="#5d6b78" stop-opacity=".1"></stop></linearGradient>
+                <linearGradient id="tCold" gradientUnits="userSpaceOnUse" x1="0" y1="-40" x2="0" y2="300"><stop offset="0" stop-color="#a9c3da" stop-opacity=".45"></stop><stop offset="1" stop-color="#a9c3da" stop-opacity="0"></stop></linearGradient>
+                <radialGradient id="sunGlow"><stop offset="0" stop-color="#fff2c2" stop-opacity=".9"></stop><stop offset=".3" stop-color="#ffd166" stop-opacity=".35"></stop><stop offset="1" stop-color="#ffd166" stop-opacity="0"></stop></radialGradient>
+                <radialGradient id="sunCore" cx=".42" cy=".38"><stop offset="0" stop-color="#fffbe6"></stop><stop offset=".55" stop-color="#ffe27a"></stop><stop offset="1" stop-color="#ffc83a"></stop></radialGradient>
+                <radialGradient id="moonGlow"><stop offset="0" stop-color="#fff" stop-opacity=".35"></stop><stop offset="1" stop-color="#fff" stop-opacity="0"></stop></radialGradient>
+                <radialGradient id="puff"><stop offset="0" stop-color="#f4f7fa" stop-opacity=".55"></stop><stop offset=".55" stop-color="#dfe6ee" stop-opacity=".32"></stop><stop offset="1" stop-color="#dfe6ee" stop-opacity="0"></stop></radialGradient>
+                <radialGradient id="puffDark"><stop offset="0" stop-color="#6d7885" stop-opacity=".8"></stop><stop offset=".55" stop-color="#55606c" stop-opacity=".5"></stop><stop offset="1" stop-color="#55606c" stop-opacity="0"></stop></radialGradient>
+            </defs>
+            <rect class="tint tint-day" x="-200" y="-200" width="800" height="640" fill="url(#tDay)"></rect>
+            <rect class="tint tint-eve" x="-200" y="-200" width="800" height="640" fill="url(#tEve)"></rect>
+            <rect class="tint tint-grey" x="-200" y="-200" width="800" height="640" fill="url(#tGrey)"></rect>
+            <rect class="tint tint-night" x="-200" y="-200" width="800" height="640" fill="url(#tNight)"></rect>
+            <rect class="tint tint-storm" x="-200" y="-200" width="800" height="640" fill="url(#tStorm)"></rect>
+            <rect class="tint tint-cold" x="-200" y="-200" width="800" height="640" fill="url(#tCold)"></rect>
+
+            <g class="wx stars">
+                <circle cx="120" cy="30" r=".9"></circle><circle cx="170" cy="62" r=".7"></circle><circle cx="215" cy="22" r="1"></circle>
+                <circle cx="260" cy="90" r=".8"></circle><circle cx="355" cy="22" r="1"></circle><circle cx="385" cy="80" r=".7"></circle>
+                <circle cx="150" cy="96" r=".6"></circle><circle cx="240" cy="54" r=".7"></circle><circle cx="300" cy="112" r=".6"></circle>
+                <circle cx="70" cy="70" r=".8"></circle><circle cx="30" cy="34" r=".7"></circle><circle cx="95" cy="118" r=".6"></circle>
+            </g>
+            <g class="wx moon"><circle class="halo" cx="320" cy="64" r="40"></circle><path class="disc" d="M327 48 a17 17 0 1 0 8 29 a13.5 13.5 0 1 1 -8 -29 z"></path></g>
+
+            <g class="wx sun">
+                <circle class="glow" cx="320" cy="64" r="80"></circle>
+                <path class="rays" d="M338.0 64.0 L354.0 64.0 M337.8 66.3 L347.8 67.7 M337.4 68.7 L352.8 72.8 M336.6 70.9 L345.9 74.7 M335.6 73.0 L349.4 81.0 M334.3 75.0 L342.2 81.0 M332.7 76.7 L344.0 88.0 M331.0 78.3 L337.0 86.2 M329.0 79.6 L337.0 93.4 M326.9 80.6 L330.7 89.9 M324.7 81.4 L328.8 96.8 M322.3 81.8 L323.7 91.8 M320.0 82.0 L320.0 98.0 M317.7 81.8 L316.3 91.8 M315.3 81.4 L311.2 96.8 M313.1 80.6 L309.3 89.9 M311.0 79.6 L303.0 93.4 M309.0 78.3 L303.0 86.2 M307.3 76.7 L296.0 88.0 M305.7 75.0 L297.8 81.0 M304.4 73.0 L290.6 81.0 M303.4 70.9 L294.1 74.7 M302.6 68.7 L287.2 72.8 M302.2 66.3 L292.2 67.7 M302.0 64.0 L286.0 64.0 M302.2 61.7 L292.2 60.3 M302.6 59.3 L287.2 55.2 M303.4 57.1 L294.1 53.3 M304.4 55.0 L290.6 47.0 M305.7 53.0 L297.8 47.0 M307.3 51.3 L296.0 40.0 M309.0 49.7 L303.0 41.8 M311.0 48.4 L303.0 34.6 M313.1 47.4 L309.3 38.1 M315.3 46.6 L311.2 31.2 M317.7 46.2 L316.3 36.2 M320.0 46.0 L320.0 30.0 M322.3 46.2 L323.7 36.2 M324.7 46.6 L328.8 31.2 M326.9 47.4 L330.7 38.1 M329.0 48.4 L337.0 34.6 M331.0 49.7 L337.0 41.8 M332.7 51.3 L344.0 40.0 M334.3 53.0 L342.2 47.0 M335.6 55.0 L349.4 47.0 M336.6 57.1 L345.9 53.3 M337.4 59.3 L352.8 55.2 M337.8 61.7 L347.8 60.3"></path>
+                <circle class="core" cx="320" cy="64" r="15"></circle>
+            </g>
+
+            <g class="wx fair"><g class="drift d1"><ellipse cx="70.0" cy="70.0" rx="33.8" ry="15.6" fill="url(#puff)"></ellipse><ellipse cx="46.6" cy="75.2" rx="23.4" ry="11.7" fill="url(#puff)"></ellipse><ellipse cx="93.4" cy="73.9" rx="26.0" ry="13.0" fill="url(#puff)"></ellipse><ellipse cx="62.2" cy="59.6" rx="20.8" ry="14.3" fill="url(#puff)"></ellipse><ellipse cx="83.0" cy="62.2" rx="19.5" ry="13.0" fill="url(#puff)"></ellipse><ellipse cx="109.0" cy="77.8" rx="18.2" ry="9.1" fill="url(#puff)"></ellipse><ellipse cx="28.4" cy="80.4" rx="15.6" ry="7.8" fill="url(#puff)"></ellipse></g><g class="drift d2"><ellipse cx="200.0" cy="40.0" rx="26.0" ry="12.0" fill="url(#puff)"></ellipse><ellipse cx="182.0" cy="44.0" rx="18.0" ry="9.0" fill="url(#puff)"></ellipse><ellipse cx="218.0" cy="43.0" rx="20.0" ry="10.0" fill="url(#puff)"></ellipse><ellipse cx="194.0" cy="32.0" rx="16.0" ry="11.0" fill="url(#puff)"></ellipse><ellipse cx="210.0" cy="34.0" rx="15.0" ry="10.0" fill="url(#puff)"></ellipse><ellipse cx="230.0" cy="46.0" rx="14.0" ry="7.0" fill="url(#puff)"></ellipse><ellipse cx="168.0" cy="48.0" rx="12.0" ry="6.0" fill="url(#puff)"></ellipse></g></g>
+            <g class="wx overcast"><g class="drift d3"><ellipse cx="120.0" cy="100.0" rx="41.6" ry="19.2" fill="url(#puff)"></ellipse><ellipse cx="91.2" cy="106.4" rx="28.8" ry="14.4" fill="url(#puff)"></ellipse><ellipse cx="148.8" cy="104.8" rx="32.0" ry="16.0" fill="url(#puff)"></ellipse><ellipse cx="110.4" cy="87.2" rx="25.6" ry="17.6" fill="url(#puff)"></ellipse><ellipse cx="136.0" cy="90.4" rx="24.0" ry="16.0" fill="url(#puff)"></ellipse><ellipse cx="168.0" cy="109.6" rx="22.4" ry="11.2" fill="url(#puff)"></ellipse><ellipse cx="68.8" cy="112.8" rx="19.2" ry="9.6" fill="url(#puff)"></ellipse></g><g class="drift d4"><ellipse cx="260.0" cy="60.0" rx="36.4" ry="16.8" fill="url(#puff)"></ellipse><ellipse cx="234.8" cy="65.6" rx="25.2" ry="12.6" fill="url(#puff)"></ellipse><ellipse cx="285.2" cy="64.2" rx="28.0" ry="14.0" fill="url(#puff)"></ellipse><ellipse cx="251.6" cy="48.8" rx="22.4" ry="15.4" fill="url(#puff)"></ellipse><ellipse cx="274.0" cy="51.6" rx="21.0" ry="14.0" fill="url(#puff)"></ellipse><ellipse cx="302.0" cy="68.4" rx="19.6" ry="9.8" fill="url(#puff)"></ellipse><ellipse cx="215.2" cy="71.2" rx="16.8" ry="8.4" fill="url(#puff)"></ellipse></g></g>
+            <g class="wx storm"><g class="drift d4"><ellipse cx="90.0" cy="70.0" rx="52.0" ry="24.0" fill="url(#puffDark)"></ellipse><ellipse cx="54.0" cy="78.0" rx="36.0" ry="18.0" fill="url(#puffDark)"></ellipse><ellipse cx="126.0" cy="76.0" rx="40.0" ry="20.0" fill="url(#puffDark)"></ellipse><ellipse cx="78.0" cy="54.0" rx="32.0" ry="22.0" fill="url(#puffDark)"></ellipse><ellipse cx="110.0" cy="58.0" rx="30.0" ry="20.0" fill="url(#puffDark)"></ellipse><ellipse cx="150.0" cy="82.0" rx="28.0" ry="14.0" fill="url(#puffDark)"></ellipse><ellipse cx="26.0" cy="86.0" rx="24.0" ry="12.0" fill="url(#puffDark)"></ellipse></g><g class="drift d1"><ellipse cx="260.0" cy="50.0" rx="46.8" ry="21.6" fill="url(#puffDark)"></ellipse><ellipse cx="227.6" cy="57.2" rx="32.4" ry="16.2" fill="url(#puffDark)"></ellipse><ellipse cx="292.4" cy="55.4" rx="36.0" ry="18.0" fill="url(#puffDark)"></ellipse><ellipse cx="249.2" cy="35.6" rx="28.8" ry="19.8" fill="url(#puffDark)"></ellipse><ellipse cx="278.0" cy="39.2" rx="27.0" ry="18.0" fill="url(#puffDark)"></ellipse><ellipse cx="314.0" cy="60.8" rx="25.2" ry="12.6" fill="url(#puffDark)"></ellipse><ellipse cx="202.4" cy="64.4" rx="21.6" ry="10.8" fill="url(#puffDark)"></ellipse></g><g class="drift d3"><ellipse cx="10.0" cy="40.0" rx="41.6" ry="19.2" fill="url(#puffDark)"></ellipse><ellipse cx="-18.8" cy="46.4" rx="28.8" ry="14.4" fill="url(#puffDark)"></ellipse><ellipse cx="38.8" cy="44.8" rx="32.0" ry="16.0" fill="url(#puffDark)"></ellipse><ellipse cx="0.4" cy="27.2" rx="25.6" ry="17.6" fill="url(#puffDark)"></ellipse><ellipse cx="26.0" cy="30.4" rx="24.0" ry="16.0" fill="url(#puffDark)"></ellipse><ellipse cx="58.0" cy="49.6" rx="22.4" ry="11.2" fill="url(#puffDark)"></ellipse><ellipse cx="-41.2" cy="52.8" rx="19.2" ry="9.6" fill="url(#puffDark)"></ellipse></g></g>
+
+            <g class="wx birds">
+                <g class="bird b1"><path d="M120 60 q4 -4 8 0 q4 -4 8 0"></path></g>
+                <g class="bird b2"><path d="M100 78 q3 -3 6 0 q3 -3 6 0"></path></g>
+                <g class="bird b3"><path d="M140 48 q2.6 -2.6 5.2 0 q2.6 -2.6 5.2 0"></path></g>
+            </g>
+        </svg>
     </div>
 
-    <div class="sim" id="sim"><span data-t="Simulation – the awning is not moved">Simulation – the awning is not moved</span></div>
-    <div class="error" id="error"></div>
-
-    <div class="stage" aria-hidden="true">
-        <svg id="scene" viewBox="0 0 400 140" preserveAspectRatio="xMinYMax slice">
+    <!-- Garten mit Haus und Markise: unten, zwischen Anzeige und Tasten -->
+    <div class="layer ground" aria-hidden="true">
+        <svg id="scene" viewBox="0 0 400 140" preserveAspectRatio="xMinYMax meet">
             <defs>
-                <linearGradient id="skyDay" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f8fe0"></stop><stop offset=".75" stop-color="#9fd2fb"></stop><stop offset="1" stop-color="#d9efff"></stop></linearGradient>
-                <linearGradient id="skyEve" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a5fa8"></stop><stop offset=".55" stop-color="#f08a5d"></stop><stop offset="1" stop-color="#ffd18a"></stop></linearGradient>
-                <linearGradient id="skyGrey" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7f97ae"></stop><stop offset="1" stop-color="#cbd8e3"></stop></linearGradient>
-                <linearGradient id="skyNight" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#07122a"></stop><stop offset="1" stop-color="#22385e"></stop></linearGradient>
-                <linearGradient id="skyStorm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3d4a58"></stop><stop offset="1" stop-color="#7d8b98"></stop></linearGradient>
-                <linearGradient id="skyCold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fb7cc"></stop><stop offset="1" stop-color="#eef4f8"></stop></linearGradient>
-                <radialGradient id="sunGlow"><stop offset="0" stop-color="#fff3c4" stop-opacity=".95"></stop><stop offset=".45" stop-color="#ffd166" stop-opacity=".45"></stop><stop offset="1" stop-color="#ffd166" stop-opacity="0"></stop></radialGradient>
-                <radialGradient id="sunCore" cx=".4" cy=".35"><stop offset="0" stop-color="#fff8d6"></stop><stop offset=".6" stop-color="#ffd043"></stop><stop offset="1" stop-color="#f6a925"></stop></radialGradient>
-                <radialGradient id="moonGlow"><stop offset="0" stop-color="#fff" stop-opacity=".35"></stop><stop offset="1" stop-color="#fff" stop-opacity="0"></stop></radialGradient>
-                <linearGradient id="cloudWhite" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"></stop><stop offset="1" stop-color="#dfe8f1"></stop></linearGradient>
-                <linearGradient id="cloudDark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8e9aa7"></stop><stop offset="1" stop-color="#5c6875"></stop></linearGradient>
+                <linearGradient id="dimGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#081226" stop-opacity="0"></stop><stop offset=".45" stop-color="#081226"></stop></linearGradient>
                 <linearGradient id="wallGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e9dcc8"></stop><stop offset="1" stop-color="#d8c7ae"></stop></linearGradient>
                 <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cfe8ff"></stop><stop offset=".5" stop-color="#8fb9e0"></stop><stop offset="1" stop-color="#5f86ad"></stop></linearGradient>
                 <linearGradient id="doorGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8fb4d6"></stop><stop offset="1" stop-color="#6a8fb3"></stop></linearGradient>
@@ -315,54 +331,8 @@
                 </pattern>
             </defs>
 
-            <!-- Himmel -->
-            <rect class="sky sky-day" width="1400" height="140" fill="url(#skyDay)"></rect>
-            <rect class="sky sky-eve" width="1400" height="140" fill="url(#skyEve)"></rect>
-            <rect class="sky sky-grey" width="1400" height="140" fill="url(#skyGrey)"></rect>
-            <rect class="sky sky-night" width="1400" height="140" fill="url(#skyNight)"></rect>
-            <rect class="sky sky-storm" width="1400" height="140" fill="url(#skyStorm)"></rect>
-            <rect class="sky sky-cold" width="1400" height="140" fill="url(#skyCold)"></rect>
-
-            <g class="wx stars">
-                <circle cx="130" cy="14" r=".9"></circle><circle cx="170" cy="30" r=".7"></circle><circle cx="205" cy="10" r="1"></circle>
-                <circle cx="300" cy="24" r=".8"></circle><circle cx="355" cy="12" r="1"></circle><circle cx="380" cy="40" r=".7"></circle>
-                <circle cx="150" cy="48" r=".6"></circle><circle cx="240" cy="44" r=".7"></circle><circle cx="330" cy="58" r=".6"></circle>
-            </g>
-            <g class="wx moon"><circle class="halo" cx="270" cy="30" r="24"></circle><path class="disc" d="M276 18 a13 13 0 1 0 6 22 a10.5 10.5 0 1 1 -6 -22 z"></path></g>
-
-            <g class="wx sun behind">
-                <circle class="glow" cx="262" cy="32" r="34"></circle>
-                <g class="rays">
-                    <path d="M262 4 v6 M262 54 v6 M234 32 h6 M284 32 h6 M242.2 12.2 l4.2 4.2 M277.6 47.6 l4.2 4.2 M242.2 51.8 l4.2 -4.2 M277.6 16.4 l4.2 -4.2"></path>
-                </g>
-                <circle class="core" cx="262" cy="32" r="13"></circle>
-            </g>
-
-            <!-- Schönwetterwolken (bei Sonne wenige, bei Bewölkung mehr) -->
-            <g class="wx fair" transform="translate(0 16)">
-                <g class="drift d1"><path class="cl" d="M10 30 h40 a9 9 0 0 0 -3 -17.5 a13 13 0 0 0 -24 -3 a10 10 0 0 0 -13 20.5 z"></path></g>
-                <g class="drift d2"><path class="cl" d="M120 18 h28 a6.5 6.5 0 0 0 -2 -12.6 a9.5 9.5 0 0 0 -17.6 -2 a7 7 0 0 0 -8.4 14.6 z" opacity=".9"></path></g>
-            </g>
-            <g class="wx overcast" transform="translate(0 16)">
-                <g class="drift d3"><path class="cl" d="M40 44 h56 a12 12 0 0 0 -4 -23.5 a18 18 0 0 0 -33 -4.5 a13.5 13.5 0 0 0 -19 28 z"></path></g>
-                <g class="drift d4"><path class="cl" d="M200 26 h48 a10 10 0 0 0 -3 -19.5 a15 15 0 0 0 -27.6 -3.6 a11.5 11.5 0 0 0 -17.4 23.1 z"></path></g>
-                <g class="drift d5"><path class="cl" d="M-60 20 h44 a9.5 9.5 0 0 0 -3 -18.5 a14 14 0 0 0 -26 -3.4 a11 11 0 0 0 -15 21.9 z" opacity=".85"></path></g>
-            </g>
-            <g class="wx storm" transform="translate(0 16)">
-                <g class="drift d4"><path class="cl dark" d="M60 40 h70 a15 15 0 0 0 -5 -29 a22 22 0 0 0 -41 -5.6 a16 16 0 0 0 -24 34.6 z"></path></g>
-                <g class="drift d1"><path class="cl dark" d="M220 30 h64 a13 13 0 0 0 -4 -25.4 a20 20 0 0 0 -37 -5 a15 15 0 0 0 -23 30.4 z"></path></g>
-                <g class="drift d3"><path class="cl dark" d="M-80 26 h60 a12 12 0 0 0 -4 -23.5 a18 18 0 0 0 -33 -4.5 a14 14 0 0 0 -23 28 z" opacity=".9"></path></g>
-            </g>
-            <g class="wx bolt"><path d="M252 50 l-10 22 h8 l-6 18 l18 -26 h-9 l7 -14 z"></path></g>
-
-            <g class="wx birds">
-                <g class="bird b1" transform="translate(0 0)"><path d="M120 22 q4 -4 8 0 q4 -4 8 0"></path></g>
-                <g class="bird b2"><path d="M100 34 q3 -3 6 0 q3 -3 6 0"></path></g>
-                <g class="bird b3"><path d="M140 16 q2.6 -2.6 5.2 0 q2.6 -2.6 5.2 0"></path></g>
-            </g>
-
             <!-- Boden -->
-            <rect class="grass" x="0" y="116" width="1400" height="24"></rect>
+            <rect class="grass" x="-1400" y="116" width="2800" height="24"></rect>
             <path class="terrace" d="M90 118 H330 L340 128 H90 Z"></path>
             <path class="terrace-line" d="M130 118 l3 10 M170 118 l3 10 M210 118 l3 10 M250 118 l3 10 M290 118 l3 10"></path>
             <path class="shade" d="M92 118 H300 L314 128 H92 Z"></path>
@@ -417,48 +387,59 @@
             </g>
 
             <!-- Abdunkeln bei Nacht und Unwetter, leuchtendes Fenster -->
-            <rect class="dimmer" width="1400" height="140"></rect>
+            <rect class="dimmer" x="-1400" width="2800" height="140" fill="url(#dimGrad)"></rect>
             <rect class="window-glow" x="17" y="31" width="13" height="24"></rect>
             <rect class="window-glow" x="32" y="31" width="13" height="24"></rect>
 
-            <!-- Wetter vor der Szene -->
-            <g class="wx rain">
-                <line x1="20" y1="40" x2="16" y2="50"></line><line x1="45" y1="30" x2="41" y2="40"></line><line x1="70" y1="45" x2="66" y2="55"></line>
-                <line x1="110" y1="35" x2="106" y2="45"></line><line x1="140" y1="50" x2="136" y2="60"></line><line x1="165" y1="28" x2="161" y2="38"></line>
-                <line x1="195" y1="42" x2="191" y2="52"></line><line x1="225" y1="32" x2="221" y2="42"></line><line x1="255" y1="48" x2="251" y2="58"></line>
-                <line x1="285" y1="36" x2="281" y2="46"></line><line x1="315" y1="44" x2="311" y2="54"></line><line x1="345" y1="30" x2="341" y2="40"></line>
-                <line x1="375" y1="46" x2="371" y2="56"></line><line x1="390" y1="34" x2="386" y2="44"></line>
-            </g>
-            <g class="wx wind">
-                <path d="M100 60 h150 a10 10 0 1 0 -10 -10"></path>
-                <path d="M60 80 h230"></path>
-                <path d="M130 96 h120 a8 8 0 1 1 -8 8"></path>
-                <path class="leaf" d="M100 70 q6 -6 12 0 q-6 6 -12 0 z"></path>
-                <path class="leaf" d="M100 90 q6 -6 12 0 q-6 6 -12 0 z"></path>
-            </g>
-            <g class="wx snow">
-                <circle cx="30" cy="20" r="1.6"></circle><circle cx="70" cy="10" r="1.2"></circle><circle cx="120" cy="25" r="1.8"></circle>
-                <circle cx="160" cy="8" r="1.3"></circle><circle cx="210" cy="18" r="1.6"></circle><circle cx="250" cy="6" r="1.2"></circle>
-                <circle cx="300" cy="22" r="1.7"></circle><circle cx="340" cy="12" r="1.3"></circle><circle cx="380" cy="20" r="1.6"></circle>
-            </g>
+
         </svg>
     </div>
 
-    <div class="reason" id="reason"></div>
-
-    <div class="timer" id="timer">
-        <div class="row"><span id="timerLabel"></span><b id="timerValue"></b></div>
-        <div class="bar"><i id="timerBar"></i></div>
-        <div class="links" id="links"></div>
+    <!-- Wetter vor dem Garten -->
+    <div class="layer front" aria-hidden="true">
+        <svg viewBox="0 0 400 240" preserveAspectRatio="xMidYMid slice">
+            <g class="wx bolt"><path d="M300 100 l-14 30 h11 l-8 25 l25 -36 h-12 l10 -19 z"></path></g>
+            <g class="wx rain"><line x1="121" y1="75" x2="117" y2="87"></line><line x1="278" y1="16" x2="274" y2="28"></line><line x1="189" y1="117" x2="185" y2="129"></line><line x1="309" y1="60" x2="305" y2="72"></line><line x1="320" y1="74" x2="316" y2="86"></line><line x1="33" y1="77" x2="29" y2="89"></line><line x1="6" y1="116" x2="2" y2="128"></line><line x1="240" y1="33" x2="236" y2="45"></line><line x1="282" y1="29" x2="278" y2="41"></line><line x1="98" y1="91" x2="94" y2="103"></line><line x1="240" y1="69" x2="236" y2="81"></line><line x1="281" y1="60" x2="277" y2="72"></line><line x1="203" y1="81" x2="199" y2="93"></line><line x1="77" y1="29" x2="73" y2="41"></line><line x1="325" y1="19" x2="321" y2="31"></line><line x1="267" y1="49" x2="263" y2="61"></line><line x1="379" y1="1" x2="375" y2="13"></line><line x1="343" y1="99" x2="339" y2="111"></line><line x1="32" y1="20" x2="28" y2="32"></line><line x1="388" y1="75" x2="384" y2="87"></line><line x1="21" y1="38" x2="17" y2="50"></line><line x1="399" y1="3" x2="395" y2="15"></line><line x1="137" y1="60" x2="133" y2="72"></line><line x1="304" y1="92" x2="300" y2="104"></line><line x1="198" y1="91" x2="194" y2="103"></line><line x1="218" y1="50" x2="214" y2="62"></line><line x1="372" y1="102" x2="368" y2="114"></line><line x1="295" y1="56" x2="291" y2="68"></line><line x1="68" y1="112" x2="64" y2="124"></line><line x1="187" y1="12" x2="183" y2="24"></line><line x1="18" y1="17" x2="14" y2="29"></line><line x1="253" y1="27" x2="249" y2="39"></line><line x1="132" y1="86" x2="128" y2="98"></line><line x1="223" y1="99" x2="219" y2="111"></line></g>
+            <g class="wx wind">
+                <path d="M60 150 h180 a12 12 0 1 0 -12 -12"></path>
+                <path d="M30 180 h260"></path>
+                <path d="M120 200 h140 a9 9 0 1 1 -9 9"></path>
+                <path class="leaf" d="M100 160 q6 -6 12 0 q-6 6 -12 0 z"></path>
+                <path class="leaf" d="M100 190 q6 -6 12 0 q-6 6 -12 0 z"></path>
+            </g>
+            <g class="wx snow"><circle cx="320" cy="38" r="1.6"></circle><circle cx="259" cy="49" r="2"></circle><circle cx="179" cy="68" r="2"></circle><circle cx="208" cy="74" r="1.2"></circle><circle cx="172" cy="3" r="1.6"></circle><circle cx="310" cy="20" r="2"></circle><circle cx="167" cy="69" r="2"></circle><circle cx="291" cy="13" r="2"></circle><circle cx="335" cy="27" r="2"></circle><circle cx="293" cy="34" r="1.6"></circle><circle cx="63" cy="8" r="1.6"></circle><circle cx="327" cy="61" r="1.2"></circle><circle cx="176" cy="8" r="1.6"></circle><circle cx="77" cy="2" r="1.6"></circle><circle cx="218" cy="53" r="1.2"></circle><circle cx="22" cy="77" r="2"></circle><circle cx="389" cy="5" r="1.6"></circle><circle cx="367" cy="75" r="1.6"></circle><circle cx="282" cy="35" r="2"></circle><circle cx="120" cy="4" r="1.6"></circle><circle cx="3" cy="9" r="1.2"></circle><circle cx="307" cy="68" r="1.2"></circle></g>
+        </svg>
     </div>
 
-    <ul class="sensors" id="sensors"></ul>
+    <div class="ui">
+        <div class="head">
+            <span class="sim" id="sim"><span data-t="Simulation – the awning is not moved">Simulation – the awning is not moved</span></span>
+            <button class="auto" id="auto" role="switch" aria-checked="false"><span class="txt" data-t="Automatic">Automatic</span><i class="track"></i></button>
+        </div>
+        <div class="error" id="error"></div>
 
-    <div class="ctrl">
-        <button id="retract" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3 L14 10 H2 Z" fill="currentColor"></path></svg><span data-t="Retract">Retract</span></button>
-        <button id="stop" type="button" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor"></rect></svg><span data-t="Stop">Stop</span></button>
-        <button id="extend" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13 L14 6 H2 Z" fill="currentColor"></path></svg><span data-t="Extend">Extend</span></button>
-        <button id="hold" type="button" role="switch" aria-checked="false" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.2 A6 6 0 1 0 13.8 10.5 A5 5 0 1 1 10.5 2.2 Z" fill="currentColor"></path></svg><span data-t="Hold">Hold</span></button>
+        <div class="hero">
+            <div class="big shadow" id="big"></div>
+            <div class="pill"><i class="dot"></i><span id="statusText">…</span></div>
+            <div class="reason shadow" id="reason"></div>
+        </div>
+
+        <div class="timer" id="timer">
+            <div class="row"><span id="timerLabel"></span><b id="timerValue"></b></div>
+            <div class="bar"><i id="timerBar"></i></div>
+            <div class="links" id="links"></div>
+        </div>
+
+        <div class="spacer" id="spacer"></div>
+
+        <ul class="chips" id="sensors"></ul>
+
+        <div class="ctrl">
+            <button id="retract" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3 L14 10 H2 Z" fill="currentColor"></path></svg><span data-t="Retract">Retract</span></button>
+            <button id="stop" type="button" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor"></rect></svg><span data-t="Stop">Stop</span></button>
+            <button id="extend" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13 L14 6 H2 Z" fill="currentColor"></path></svg><span data-t="Extend">Extend</span></button>
+            <button id="hold" type="button" role="switch" aria-checked="false" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.2 A6 6 0 1 0 13.8 10.5 A5 5 0 1 1 10.5 2.2 Z" fill="currentColor"></path></svg><span data-t="Hold">Hold</span></button>
+        </div>
     </div>
 </div>
 
@@ -517,6 +498,14 @@
             }
         }
 
+        // Große Anzeige: Zustand der Markise (mit Positionsvariable in Prozent)
+        var STATES = ['retracted', 'retracting', 'extending', 'extended', 'stopped'];
+        function bigText(d) {
+            var w = t(STATES[d.state] || 'retracted');
+            w = w.charAt(0).toUpperCase() + w.slice(1);
+            return d.hasPosition && typeof d.position === 'number' ? w + ' · ' + d.position + ' %' : w;
+        }
+
         // Wetterbild: Sicherheit zuerst, dann Nacht, dann Sonne nach Helligkeit (nicht nur nach Status)
         function weather(d) {
             var s = d.status;
@@ -571,6 +560,7 @@
             tile.className = cls.join(' ');
 
             $('error').textContent = d.error || '';
+            $('big').textContent = bigText(d);
             $('statusText').textContent = d.error ? (d.errorTitle || '') : (d.statusText || '');
             $('reason').textContent = d.reason || '';
 
@@ -597,6 +587,7 @@
 
             renderSensors(d.sensors || []);
             renderTimer();
+            layout();
         }
 
         function renderSensors(list) {
@@ -607,19 +598,15 @@
                 var lbl = document.createElement('span');
                 lbl.className = 'lbl';
                 lbl.textContent = s.label;
-                if (s.limit || s.note) {
-                    var small = document.createElement('small');
-                    small.textContent = s.note || s.limit;
-                    lbl.appendChild(small);
-                }
+                li.title = s.note || s.limit || '';
                 var val = document.createElement('span');
                 val.className = 'val';
                 val.textContent = s.value;
                 var mark = document.createElement('i');
                 mark.className = 'mark' + (s.ok === false ? ' no' : (s.ok === null ? ' na' : ''));
+                li.appendChild(mark);
                 li.appendChild(lbl);
                 li.appendChild(val);
-                li.appendChild(mark);
                 ul.appendChild(li);
             });
         }
@@ -667,22 +654,46 @@
             if (last) send('Hold', !last.hold);
         });
 
-        // Szene passend zur Kachelgröße: breit = Panorama füllen, schmal/hoch = ganze Szene zeigen, Himmel darüber
+        // Garten zwischen Anzeige und Tasten einpassen: oben bis unter die Anzeige, unten bis über Werte und Tasten.
+        // Unter dem Garten geht die Wiese als Fläche weiter, darauf liegen Werte und Tasten.
         var scene = $('scene');
-        function fitScene() {
-            var r = scene.getBoundingClientRect();
-            if (!r.width || !r.height) return;
-            // Sichtbare Breite in Szenen-Einheiten: die volle Höhe bleibt immer sichtbar (Sonne wird nicht abgeschnitten).
-            // Schmal: mindestens Haus bis Markisenende (295); breit/flach (z. B. Handy quer): Himmel und Wiese gehen bis 800 weiter.
-            var w = Math.max(295, Math.min(1400, 140 * r.width / r.height));
-            scene.setAttribute('viewBox', '0 0 ' + Math.round(w) + ' 140');
+        var ground = document.querySelector('.ground');
+        function layout() {
+            var tr = tile.getBoundingClientRect();
+            if (!tr.height) return;
+            var hero = document.querySelector('.hero');
+            var hr = hero.getBoundingClientRect();
+            // Flache Kachel (z. B. Monitor-Leiste): Garten neben der Anzeige statt darunter
+            var flat = tr.width / tr.height > 2.2;
+            var top = flat ? (hr.top - tr.top) : ($('spacer').getBoundingClientRect().top - tr.top);
+            var chips = $('sensors');
+            var lowest = chips.offsetParent !== null && chips.childElementCount ? chips : document.querySelector('.ctrl');
+            var below = Math.max(0, tr.bottom - lowest.getBoundingClientRect().top + 6);
+            top = Math.max(0, Math.min(top, tr.height - below - 40));
+            ground.style.top = top + 'px';
+            ground.style.setProperty('--below', below + 'px');
+            var h = tr.height - top - below;
+            var w = Math.max(295, Math.min(1400, 140 * tr.width / Math.max(1, h)));
+            var x = 0;
+            if (flat) {
+                // Text links frei lassen: Szene um die Breite der Anzeige nach rechts schieben
+                var textRight = 0;
+                Array.prototype.forEach.call(hero.children, function (c) {
+                    var r = c.getBoundingClientRect();
+                    if (r.width) textRight = Math.max(textRight, Math.min(r.right, r.left + c.scrollWidth) - tr.left);
+                });
+                x = -Math.round((textRight + 24) * 140 / Math.max(1, h));
+            }
+            scene.setAttribute('viewBox', x + ' 0 ' + Math.round(w) + ' 140');
             scene.setAttribute('preserveAspectRatio', w >= 1400 ? 'xMinYMax slice' : 'xMinYMax meet');
-            scene.style.setProperty('--sw', Math.round(w + 60) + 'px');
+            // Hohe Kachel (Handy): Himmel nach Breite einpassen, damit die Sonne oben rechts bleibt und nicht hinter dem Text
+            var tall = tr.width / tr.height < 400 / 240;
+            $('skysvg').setAttribute('viewBox', tall ? '100 -40 300 320' : '0 0 400 240');
+            $('skysvg').setAttribute('preserveAspectRatio', tall ? 'xMaxYMin meet' : 'xMaxYMin slice');
         }
         if (window.ResizeObserver) {
-            new ResizeObserver(fitScene).observe(scene);
+            new ResizeObserver(layout).observe(tile);
         }
-        fitScene();
 
         // Statische Texte übersetzen
         Array.prototype.forEach.call(document.querySelectorAll('[data-t]'), function (el) {
@@ -722,5 +733,6 @@
             window.handleMessage(initial);
         }
         updatePause();
+        layout();
     })();
 </script>

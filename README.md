@@ -2,7 +2,7 @@
 
 [![IP-Symcon ab 8.2](https://img.shields.io/badge/IP--Symcon-ab_8.2-0b6fb3.svg)](https://www.symcon.de)
 [![Optimiert für Symcon 9.0](https://img.shields.io/badge/optimiert_f%C3%BCr-Symcon_9.0-0b6fb3.svg)](https://www.symcon.de/de/service/dokumentation/installation/migrationen/v81-v90-q1-2026/)
-![Modul-Version 1.4](https://img.shields.io/badge/Modul--Version-1.4-informational.svg)
+![Modul-Version 1.5](https://img.shields.io/badge/Modul--Version-1.5-informational.svg)
 [![Tests](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml/badge.svg)](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml)
 ![Sprachen: Deutsch, Englisch](https://img.shields.io/badge/Sprachen-Deutsch_%7C_Englisch-blueviolet.svg)
 ![PHP 8.5](https://img.shields.io/badge/PHP-8.5-777bb4.svg?logo=php&logoColor=white)
@@ -220,12 +220,12 @@ Push-Nachricht bei Sicherheitsalarm, bei jeder automatischen Fahrt, Ziel-Visuali
 
 ## 6. Kachel
 
-Die Kachel zeigt ein kleines Garten-Panorama: Haus mit Fenster und Terrassentür, Terrasse mit Tisch, Stühlen und Blumentopf, darüber die Markise, die in der eingestellten Fahrzeit aus- und einfährt und einen Schatten wirft. Der Himmel folgt Wetter und Tageszeit: blauer Himmel mit leuchtender Sonne, ziehenden Schönwetterwolken und Vögeln, Abendrot, bewölkt mit Sonne dahinter, Nacht mit Mond, Sternen und erleuchtetem Fenster, dunkle Regenwolken mit Regen, Sturm mit Windböen und fliegenden Blättern, Unwetter mit Blitz, Frost mit Schneeflocken. Ist die Terrassentür offen, steht sie auch im Bild offen. Die Sonne erscheint, sobald es tagsüber hell genug ist, nicht erst beim Ausfahren. Breite Kacheln zeigen das ganze Panorama, schmale den Ausschnitt vom Haus bis zur Markise.
+Die Kachel ist im Stil der Pegelstand-Kachel gestaltet: Die Szene füllt die ganze Kachel, die Anzeige liegt darüber. Oben links steht groß der Zustand der Markise („Ausgefahren“, „Eingefahren“, „Fährt aus“ …, mit Positionsvariable auch in Prozent), darunter der Status als Pille mit Farbpunkt und die Begründung. Der Himmel ist eine zarte Tönung über dem Hintergrund der Visualisierung: Sonne mit feinem Strahlenkranz und weichem Glühen, weiche ziehende Wolken, Vögel, Abendrot, Mond und Sterne, dunkle Regenwolken mit Regen, Sturm mit Böen und Blättern, Blitz, Schneeflocken. Unten der Garten mit Haus, Fenster, Terrassentür (offen/zu), Terrasse, Gartenmöbeln, Blumentopf und der Markise, die in der Fahrzeit aus- und einfährt. Werte und Tasten liegen als Glas-Elemente auf der Wiese. Auf dem Handy rutscht der Garten nach unten und die Sonne bleibt oben rechts, auf flachen Monitor-Kacheln steht der Garten rechts neben der Anzeige.
 
 - **Kopf:** Status mit Farbpunkt (grün = Sonnenschutz, blau = Info, grau = Pause/Nacht, rot pulsierend = Sicherheit) und Schalter für die Automatik
 - **Begründung** der letzten Entscheidung
 - **Countdown** für Wind-/Regensperre, Handbetrieb-Pause oder Karenz, mit „Automatik fortsetzen“, „Karenz neu starten“ und „Karenz beenden“
-- **Sensorliste** mit Wert, Grenze und Ampelpunkt (ab ca. 260 × 340 Pixel). Bei Helligkeit und Temperatur heißt grün „reicht zum Ausfahren“, rot „so niedrig, dass eingefahren wird“ und grau „dazwischen, die Markise bleibt, wie sie ist“ (Hysterese)
+- **Werte** als Glas-Chips mit Ampelpunkt (ab ca. 300 × 380 Pixel); Grenze und Hinweis erscheinen beim Darüberfahren. Bei Helligkeit und Temperatur heißt grün „reicht zum Ausfahren“, rot „so niedrig, dass eingefahren wird“ und grau „dazwischen, die Markise bleibt, wie sie ist“ (Hysterese)
 - **Tasten** Einfahren, Stopp (nur wenn vorhanden), Ausfahren und Halten (Mond-Symbol, leuchtet wenn aktiv). Bei Sicherheitsalarm ist Ausfahren gesperrt
 - **Sensorliste** zusätzlich mit Unwetter-Warnstufe und Terrassentür, bei der Helligkeit auch der Mittelwert, wenn er vom aktuellen Wert abweicht
 - Kleine Kacheln zeigen nur Status und Tasten
@@ -446,6 +446,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.5 | 21 | 05.10.2026 | Steuer-Kachel neu im Stil der Pegelstand-Kachel: Szene über die ganze Kachel, großer Zustand, Status-Pille, weiche Wolken, Sonne mit Strahlenkranz, Werte als Glas-Chips, Tasten auf der Wiese; passt sich Handy, Tablet und flachen Monitor-Kacheln an |
 | 1.4 | 20 | 05.10.2026 | Markise in der Kachel deutlich sichtbarer: kräftiges Tuch mit Kontur, Glanz und Unterseite, kontrastreiche Streifen, Gelenkarme mit Gelenk, größere Kassette; breite Kacheln zeigen zusätzlich Zaun, Baum, Büsche und Blumen; die Szene wird auch bei sehr flachen Kacheln nicht mehr abgeschnitten |
 | 1.4 | 19 | 05.10.2026 | Fehler behoben: Mit „Animationen reduzieren“ sprang das Markisentuch sofort auf ganz aus/ganz ein, während der Schatten in der Fahrzeit lief. Aus- und Einfahren laufen jetzt immer gemeinsam in der Fahrzeit; reduziert wird nur die Deko |
 | 1.4 | 18 | 05.10.2026 | Markise fährt in der Kachel gleichmäßig genau in der eingestellten Fahrzeit; wird die Kachel während einer Fahrt geöffnet, geht die Animation an der richtigen Stelle weiter |
