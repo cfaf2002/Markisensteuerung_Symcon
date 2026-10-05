@@ -29,6 +29,7 @@ class MarkisenEinstellungen extends IPSModuleStrict
         $this->RegisterPropertyInteger('TileTheme', 0);
 
         $this->RegisterAttributeInteger('Watched', 0);
+        $this->RegisterAttributeString('WatchedVariables', '[]');
         $this->RegisterAttributeString('TileData', '{}');
     }
 
@@ -69,6 +70,11 @@ class MarkisenEinstellungen extends IPSModuleStrict
             return;
         }
         if ($Message === IM_CHANGESETTINGS && $SenderID === $this->ReadAttributeInteger('Watched')) {
+            $this->PushTile();
+            return;
+        }
+        // z. B. Anwesenheit von außen geändert
+        if ($Message === VM_UPDATE && in_array($SenderID, json_decode($this->ReadAttributeString('WatchedVariables'), true) ?: [], true)) {
             $this->PushTile();
         }
     }
@@ -113,18 +119,41 @@ class MarkisenEinstellungen extends IPSModuleStrict
             'readOnly' => !$this->ReadPropertyBoolean('AllowChanges'),
             'error'    => '',
         ];
+        $watch = [];
         if ($status === 102) {
             $params = json_decode(MARKISE_GetParameters($this->ReadPropertyInteger('TargetInstance')), true);
             $data += is_array($params) ? $params : [];
+            $watch = array_values(array_filter($data['watch'] ?? [], 'is_int'));
+            unset($data['watch']);
         } else {
             $data['error'] = $this->Translate($status === 201 ? 'The selected instance is not an awning control.' : 'Please select the awning control in the instance.');
         }
+        $this->WatchVariables($watch);
+
         $json = json_encode($data);
         if ($json === $this->ReadAttributeString('TileData')) {
             return; // unverändert: nichts senden
         }
         $this->WriteAttributeString('TileData', $json);
         $this->UpdateVisualizationValue($json);
+    }
+
+    /** Meldet die Variablen an, deren Änderung die Kachel betrifft (nur bei Änderung der Liste) */
+    private function WatchVariables(array $ids): void
+    {
+        $old = json_decode($this->ReadAttributeString('WatchedVariables'), true) ?: [];
+        if ($old === $ids) {
+            return;
+        }
+        foreach ($old as $id) {
+            $this->UnregisterMessage((int) $id, VM_UPDATE);
+        }
+        foreach ($ids as $id) {
+            if (IPS_VariableExists($id)) {
+                $this->RegisterMessage($id, VM_UPDATE);
+            }
+        }
+        $this->WriteAttributeString('WatchedVariables', json_encode($ids));
     }
 
     private function CheckTarget(int $id): int

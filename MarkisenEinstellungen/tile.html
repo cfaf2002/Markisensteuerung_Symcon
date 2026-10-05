@@ -37,8 +37,10 @@
     #tile.theme-dark  { --fg: #eef3f7; --accent: #e2a63b; background: linear-gradient(180deg, #1b2a38, #142029); border-radius: inherit; }
     #tile.theme-light { --fg: #1d2b36; --accent: #c98a1c; background: linear-gradient(180deg, #f4f8fb, #e6eef4); border-radius: inherit; }
 
+    /* Zwei Spalten: Sonnenautomatik und Zeiten links, Sicherheit und Anwesenheit rechts */
     .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
-    @container (min-width: 620px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    @container (min-width: 620px) { .grid { grid-template-columns: 1fr 1fr; align-items: start; } }
 
     h3 { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
     .rows { border-top: 1px solid var(--line); }
@@ -171,7 +173,7 @@
             sw.setAttribute('role', 'switch');
             sw.setAttribute('aria-checked', item.value ? 'true' : 'false');
             sw.setAttribute('aria-label', item.label);
-            sw.disabled = ro;
+            sw.disabled = ro || !!item.readOnly;
             sw.addEventListener('click', function () {
                 item.value = !item.value;
                 sw.setAttribute('aria-checked', item.value ? 'true' : 'false');
@@ -213,7 +215,12 @@
             if (d.error) return;
             var ro = !!d.readOnly;
 
+            var cols = [el('div', 'col'), el('div', 'col')];
+            grid.appendChild(cols[0]);
+            grid.appendChild(cols[1]);
+
             (d.groups || []).forEach(function (g, i) {
+                if (!g.items.length) return;
                 var sec = el('section');
                 sec.appendChild(el('h3', '', g.title));
                 var rows = el('div', 'rows');
@@ -223,7 +230,7 @@
                     else rows.appendChild(numberRow(item, ro));
                 });
                 // Wochentage gehören zu „Zeiten“
-                if (i === (d.groups.length - 1) && d.weekdays) {
+                if (g.key === 'Times' && d.weekdays) {
                     var title = el('div', 'row');
                     title.appendChild(el('span', 'lbl', d.weekdaysTitle || ''));
                     rows.insertBefore(title, rows.firstChild);
@@ -243,7 +250,7 @@
                     rows.insertBefore(days, title.nextSibling);
                 }
                 sec.appendChild(rows);
-                grid.appendChild(sec);
+                cols[i % 2].appendChild(sec);
             });
         }
 

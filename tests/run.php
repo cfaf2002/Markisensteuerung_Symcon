@@ -1198,7 +1198,7 @@ test('Einstellungs-Kachel: zeigt die Grundwerte der Markisensteuerung', function
     check($s->status === 102 && $s->visualizationType === 1, 'aktiv mit Kachel');
     check(isset($s->messages[$m->InstanceID][IM_CHANGESETTINGS]) && isset($s->references[$m->InstanceID]), 'hört auf Änderungen der Markise');
     $t = kachel($s);
-    check(array_column($t['groups'], 'title') === ['Sonnenautomatik', 'Sicherheit', 'Zeiten'], 'Gruppen übersetzt');
+    check(array_column($t['groups'], 'title') === ['Sonnenautomatik', 'Sicherheit', 'Zeiten', 'Anwesenheit'], 'Gruppen übersetzt');
     check(wert($t, 'LuxOn') === 25000 && wert($t, 'LuxOff') === 15000, 'Luxgrenzen');
     check(wert($t, 'Weekday3') === false && wert($t, 'Weekday1') === true, 'Wochentage');
     check(wert($t, 'TimeFrom') === '09:00', 'Zeitfenster als HH:MM');
@@ -1224,6 +1224,32 @@ test('Einstellungs-Kachel: Änderungen landen in der Markisensteuerung', functio
     $m->prop('DelayOn', 12);
     IPS_ApplyChanges($m->InstanceID);
     check(wert(kachel($s), 'DelayOn') === 12, 'Änderung im Formular erscheint in der Kachel');
+});
+
+test('Einstellungs-Kachel: Anwesenheitsschalter', function (): void {
+    $m = markise();
+    Sym::$vars[V_PRESENCE]['action'] = true;
+    $s = einstellungen($m);
+    $t = kachel($s);
+    check(array_column($t['groups'], 'key') === ['Sun protection', 'Safety', 'Times', 'Presence'], 'Gruppe Anwesenheit rechts unter Sicherheit');
+    check(wert($t, 'Presence') === true && wert($t, 'GraceMinutes') === 30, 'Schalter und Karenz in der Gruppe');
+    check(isset($s->messages[V_PRESENCE][VM_UPDATE]), 'Anwesenheit wird überwacht');
+    $s->RequestAction('Set', json_encode(['name' => 'Presence', 'value' => false]));
+    check(lastAction() === V_PRESENCE . '=false', 'schaltet die Anwesenheitsvariable über ihre Aktion');
+    check(!array_key_exists('Presence', $m->properties), 'wird nicht als Eigenschaft gespeichert');
+    $s->MessageSink(Sym::$now, V_PRESENCE, VM_UPDATE, [true]);
+    Sym::$vars[V_PRESENCE]['value'] = true;
+    $s->MessageSink(Sym::$now, V_PRESENCE, VM_UPDATE, [true]);
+    check(wert(kachel($s), 'Presence') === true, 'Änderung von außen erscheint in der Kachel');
+
+    Sym::$vars[V_PRESENCE]['action'] = false;
+    $s->ApplyChanges();
+    $item = array_values(array_filter(kachel($s)['groups'][3]['items'], static fn ($i) => $i['name'] === 'Presence'))[0];
+    check($item['readOnly'] === true, 'ohne Aktion nur Anzeige');
+    check(throws(fn () => $s->RequestAction('Set', json_encode(['name' => 'Presence', 'value' => true]))), 'Schalten ohne Aktion abgelehnt');
+
+    $n = markise(['PresenceVariableID' => 0]);
+    check(wert(kachel(einstellungen($n)), 'Presence') === null, 'ohne Anwesenheitsvariable kein Schalter');
 });
 
 test('Einstellungs-Kachel: ungültige Eingaben werden abgelehnt', function (): void {

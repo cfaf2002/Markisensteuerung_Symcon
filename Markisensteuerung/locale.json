@@ -294,7 +294,9 @@
             "Door is closed now": "Tür ist jetzt zu",
             "value %d": "Wert %d",
             "Time window from": "Zeitfenster von",
-            "Time window to": "Zeitfenster bis"
+            "Time window to": "Zeitfenster bis",
+            "Presence": "Anwesenheit",
+            "Someone at home": "Jemand zu Hause"
         }
     }
 }

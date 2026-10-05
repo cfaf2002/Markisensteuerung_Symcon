@@ -23,7 +23,8 @@ trait MarkiseParameterTrait
 {
     /**
      * Gruppe => [Eigenschaft => [Typ, Beschriftung, min, max, Schritt, Einheit]]
-     * Typen: int, float, bool, time; Einheit 'wind'/'gust' = Einheit des jeweiligen Sensors
+     * Typen: int, float, bool, time, presence (Schalter der Anwesenheitsvariable);
+     * Einheit 'wind'/'gust' = Einheit des jeweiligen Sensors
      */
     private const PARAMETERS = [
         'Sun protection' => [
@@ -44,6 +45,9 @@ trait MarkiseParameterTrait
             'UseTimeWindow'   => ['bool', 'Only within a time window', 0, 1, 1, ''],
             'TimeFrom'        => ['time', 'Time window from', 0, 0, 0, ''],
             'TimeTo'          => ['time', 'Time window to', 0, 0, 0, ''],
+        ],
+        'Presence' => [
+            'Presence'        => ['presence', 'Someone at home', 0, 1, 1, ''],
             'GraceMinutes'    => ['int', 'Grace period after leaving', 0, 240, 5, 'min'],
         ],
     ];
@@ -62,6 +66,13 @@ trait MarkiseParameterTrait
                 if ($name === 'WarningMinLevel' && !$this->ReadPropertyBoolean('UseWarning')) {
                     continue;
                 }
+                if ($name === 'Presence') {
+                    $presence = $this->PresenceItem();
+                    if ($presence !== null) {
+                        $list[] = $presence;
+                    }
+                    continue;
+                }
                 [$type, $label, $min, $max, $step, $unit] = $this->ParameterDefinition($name, $def);
                 $list[] = [
                     'name'  => $name,
@@ -74,7 +85,7 @@ trait MarkiseParameterTrait
                     'value' => $this->ParameterValue($name, $type),
                 ];
             }
-            $groups[] = ['title' => $this->Translate($group), 'items' => $list];
+            $groups[] = ['key' => $group, 'title' => $this->Translate($group), 'items' => $list];
         }
         $weekdays = [];
         foreach (self::WEEKDAY_SHORT as $d => $short) {
@@ -86,7 +97,69 @@ trait MarkiseParameterTrait
             'groups'        => $groups,
             'weekdays'      => $weekdays,
             'weekdaysTitle' => $this->Translate('Released weekdays'),
+            // Variablen, deren Änderung die Einstellungs-Kachel neu zeichnen soll
+            'watch'         => array_values(array_filter([$this->PresenceTargetID()], static fn (int $id): bool => $id > 0)),
         ]);
+    }
+
+    /**
+     * Schalter für die Anwesenheit: bedient die eingestellte Anwesenheitsvariable
+     * (in der Simulation die Simulationsvariable). Ohne Anwesenheitsvariable gibt es keinen Schalter.
+     */
+    private function PresenceItem(): ?array
+    {
+        $id = $this->ReadPropertyInteger('PresenceVariableID');
+        if ($id <= 0 || !IPS_VariableExists($id)) {
+            return null;
+        }
+        $target = $this->PresenceTargetID();
+        $sim = $target !== $id;
+        return [
+            'name'     => 'Presence',
+            'type'     => 'bool',
+            'label'    => IPS_GetName($id) . ($sim ? ' (' . $this->Translate('Simulation') . ')' : ''),
+            'min'      => 0,
+            'max'      => 1,
+            'step'     => 1,
+            'unit'     => '',
+            'value'    => (bool) GetValue($target),
+            // Ohne Aktion lässt sich die Variable nicht schalten – dann nur anzeigen
+            'readOnly' => !$sim && !HasAction($id),
+        ];
+    }
+
+    /** Variable, die der Anwesenheitsschalter bedient: echte Variable oder in der Simulation die Simulationsvariable */
+    private function PresenceTargetID(): int
+    {
+        $id = $this->ReadPropertyInteger('PresenceVariableID');
+        if ($id <= 0 || !IPS_VariableExists($id)) {
+            return 0;
+        }
+        if ($this->Simulating()) {
+            $sim = @$this->GetIDForIdent('SimPresence');
+            if (is_int($sim) && $sim > 0) {
+                return $sim;
+            }
+        }
+        return $id;
+    }
+
+    /** Anwesenheit schalten – über die Aktion der Variable, wie ein Taster in der Visualisierung */
+    private function SetPresence(mixed $value): void
+    {
+        $on = self::ToBool($value);
+        $id = $this->ReadPropertyInteger('PresenceVariableID');
+        if ($id <= 0 || !IPS_VariableExists($id)) {
+            throw new InvalidArgumentException('Keine Anwesenheitsvariable eingestellt.');
+        }
+        if ($this->PresenceTargetID() !== $id) {
+            $this->SetSimValue('SimPresence', $on);
+            return;
+        }
+        if (!HasAction($id)) {
+            throw new InvalidArgumentException('Die Anwesenheitsvariable hat keine Aktion.');
+        }
+        RequestAction($id, $on);
     }
 
     /**
@@ -94,6 +167,11 @@ trait MarkiseParameterTrait
      */
     public function SetParameter(string $Name, mixed $Value): bool
     {
+        if ($Name === 'Presence') {
+            // keine Einstellung, sondern der aktuelle Zustand – wird nicht als Eigenschaft gespeichert
+            $this->SetPresence($Value);
+            return true;
+        }
         $changes = $this->ValidateParameter($Name, $Value);
         foreach ($changes as $property => $value) {
             IPS_SetProperty($this->InstanceID, $property, $value);

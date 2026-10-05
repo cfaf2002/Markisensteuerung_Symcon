@@ -63,7 +63,7 @@ Autor: Armin Frohwerk · Lizenz: MIT
 - **Lux-Mittelwert und Schaltlimit:** Die Helligkeit wird über einige Minuten gemittelt, und die Sonnenautomatik fährt höchstens X-mal pro Stunde. Bei Aprilwetter bleibt die Markise ruhig
 - **Standort:** aus dem Location-Modul oder eigene Koordinaten in der Instanz, per Taste aus dem Location-Modul übernehmbar
 - **Übernahme aus dem bisherigen Skript:** Variablen-IDs, Grenzwerte und Wochentage per Knopfdruck einlesen. Das Skript wird nur gelesen, nie ausgeführt
-- **Zweite Kachel „Markisen Einstellungen“:** Grenzwerte, Verzögerungen, Wochentage, Tag/Nacht, Zeitfenster und Karenz übersichtlich anzeigen und mit Plus/Minus, Schaltern und Wochentags-Tasten ändern. Auf Wunsch nur zur Anzeige
+- **Zweite Kachel „Markisen Einstellungen“:** Grenzwerte, Verzögerungen, Wochentage, Tag/Nacht, Zeitfenster, Anwesenheitsschalter und Karenz übersichtlich anzeigen und mit Plus/Minus, Schaltern und Wochentags-Tasten ändern. Auf Wunsch nur zur Anzeige
 - **Eigene Kachel** im Symcon-Design mit gezeichneter Markise, Wetter, Begründung, Countdown, Sensorliste und Tasten
 - Deutsch und Englisch nach Symcon-Konvention: englische Texte im Modul, deutsche Übersetzung in `locale.json`
 - Automatische Tests mit GitHub-Workflow
@@ -234,7 +234,10 @@ Eine eigene Instanz vom Typ **Markisen Einstellungen** liefert eine zweite Kache
 
 - **Sonnenautomatik:** Ausfahren ab, Einfahren unter, Mindesttemperatur, Windgrenze, Ausfahr- und Einfahrverzögerung
 - **Sicherheit:** Windalarm, Böenalarm und, mit Unwetterwarnung, „Einfahren ab Stufe“
-- **Zeiten:** Wochentage als Tasten Mo–So, Tag/Nacht-Prüfung, Zeitfenster mit Uhrzeiten, Karenz
+- **Zeiten:** Wochentage als Tasten Mo–So, Tag/Nacht-Prüfung, Zeitfenster mit Uhrzeiten
+- **Anwesenheit:** Schalter für die eingestellte Anwesenheitsvariable (Beschriftung = Name der Variable) und Karenz. Der Schalter bedient die Variable über ihre Aktion wie ein Taster in der Visualisierung; ohne Aktion wird er nur angezeigt. In der Simulation schaltet er die Simulationsvariable. Änderungen von außen erscheinen sofort
+
+Bei breiter Kachel stehen links Sonnenautomatik und Zeiten, rechts Sicherheit und Anwesenheit.
 
 Zahlen ändern sich mit Plus und Minus. Mehrere schnelle Klicks werden gesammelt und erst nach einer kurzen Pause gespeichert, damit die Markisensteuerung nicht bei jedem Klick neu übernimmt. Wind und Böen nutzen die Einheit des jeweiligen Sensors. Ist die Kachel breit genug, stehen die Gruppen in zwei Spalten; bei wenig Höhe lässt sie sich scrollen.
 
@@ -436,6 +439,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.3 | 11 | 05.10.2026 | Einstellungs-Kachel: Gruppe „Anwesenheit“ mit Schalter für die Anwesenheitsvariable und Karenz, zweispaltiges Layout ohne Lücke |
 | 1.3 | 10 | 05.10.2026 | Zweite Kachel „Markisen Einstellungen“ für Grundwerte, Wochentage und Zeiten; neue Befehle `MARKISE_GetParameters` und `MARKISE_SetParameter` |
 | 1.2 | 9 | 05.10.2026 | Kachel: Ampel bei Helligkeit und Temperatur berücksichtigt die Hysterese (grau statt rot zwischen Ein- und Ausfahrgrenze) |
 | 1.2 | 8 | 05.10.2026 | Terrassentür: aktueller Wert und Deutung im Formular und in der Kachel, Taste „Tür ist jetzt zu“ übernimmt den Wert für „geschlossen“ |
