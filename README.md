@@ -1,14 +1,16 @@
-# Markisensteuerung
+# Markisensteuerung für IP-Symcon
 
 [![IP-Symcon ab 8.2](https://img.shields.io/badge/IP--Symcon-ab_8.2-0b6fb3.svg)](https://www.symcon.de)
 [![Optimiert für Symcon 9.0](https://img.shields.io/badge/optimiert_f%C3%BCr-Symcon_9.0-0b6fb3.svg)](https://www.symcon.de/de/service/dokumentation/installation/migrationen/v81-v90-q1-2026/)
-![Modul-Version 1.5](https://img.shields.io/badge/Modul--Version-1.5-informational.svg)
+[![Modul-Version 1.6 (Build 26)](https://img.shields.io/badge/Modul--Version-1.6_(Build_26)-informational.svg)](library.json)
 [![Tests](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml/badge.svg)](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml)
-![Sprachen: Deutsch, Englisch](https://img.shields.io/badge/Sprachen-Deutsch_%7C_Englisch-blueviolet.svg)
-![PHP 8.5](https://img.shields.io/badge/PHP-8.5-777bb4.svg?logo=php&logoColor=white)
+[![PHP 8.3 und 8.5](https://img.shields.io/badge/PHP-8.3_%7C_8.5-777bb4.svg?logo=php&logoColor=white)](https://www.php.net)
 [![SDK: IPSModuleStrict](https://img.shields.io/badge/SDK-IPSModuleStrict-success.svg)](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/module/)
-[![Darstellungen statt Profile](https://img.shields.io/badge/Variablen-Darstellungen-success.svg)](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/darstellungen/)
+[![Variablen: Darstellungen](https://img.shields.io/badge/Variablen-Darstellungen-success.svg)](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/darstellungen/)
 [![Kachel-Visualisierung: HTML-SDK](https://img.shields.io/badge/Kachel--Visualisierung-HTML--SDK-orange.svg)](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/html-sdk/)
+[![Farbschema: Symcon-Design, Dunkel, Hell](https://img.shields.io/badge/Farbschema-Symcon--Design_%7C_Dunkel_%7C_Hell-blueviolet.svg)](STYLEGUIDE.md)
+![Sprache: Deutsch | Englisch](https://img.shields.io/badge/Sprachen-Deutsch_%7C_Englisch-blueviolet.svg)
+[![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-green.svg)](LICENSE)
 ![Zwei Kacheln](https://img.shields.io/badge/Kacheln-Steuerung_%2B_Einstellungen-orange.svg)
 ![Sicherheit zuerst](https://img.shields.io/badge/Sicherheit-Wind_%7C_B%C3%B6en--Trend_%7C_Regen_%7C_Frost_%7C_Sensorausfall-red.svg)
 [![DWD-Unwetterwarnung](https://img.shields.io/badge/DWD-Unwetterwarnung-darkred.svg)](https://github.com/Wilkware/IPSymconWeatherWarning)
@@ -17,7 +19,6 @@
 ![Umstieg](https://img.shields.io/badge/Umstieg-Skript_per_Knopfdruck_%C3%BCbernehmen-blue.svg)
 ![Simulation](https://img.shields.io/badge/Simulation-Testbetrieb_ohne_Fahrt-yellow.svg)
 ![Ohne Cloud](https://img.shields.io/badge/Cloud-nicht_n%C3%B6tig-brightgreen.svg)
-[![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-green.svg)](LICENSE)
 
 IP-Symcon-Modul für die automatische Steuerung einer Markise nach Sonne, Wind, Böen, Regen, Temperatur und Anwesenheit. Es ersetzt das bisherige Skript samt Debug-Kachel durch eine Instanz mit eigener Kachel. Die Markise wird über vorhandene Symcon-Variablen angesteuert, zum Beispiel die Ausfahren-/Einfahren-Variablen eines Somfy-Gateways.
 
@@ -446,6 +447,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.6 | 26 | 06.10.2026 | Einheitliches Design nach `STYLEGUIDE.md`: Kachel-Grundlage (Farben, Schrift, Radien, Zustandsfarben) und Einstellung „Farbschema der Kachel“ (Symcon-Design, Dunkel, Hell); Kachel-Datei heißt `tile.html`; einheitliche Badges; gemeinsamer Test-Workflow mit Struktur- und Ladetest; Kachel-Grundlage ergänzt, keine sichtbare Änderung |
 | 1.5 | 25 | 05.10.2026 | Modernes Flachdachhaus mit Holzverkleidung, Fensterband und Glas-Schiebetür (gleitet beim Öffnen zur Seite, abends warmes Licht), Holzterrasse, Lounge-Sessel mit Polstern, Pflanzkübel mit wehendem Ziergras, Buchskugeln, Gartenleuchten, Lamellenzaun, Säulenbäume und Lavendel; Wolken ziehen ruhiger; Vögel als Silhouetten mit sanftem Auf und Ab, Flügelschlag und Gleitphasen |
 | 1.5 | 24 | 05.10.2026 | Himmel füllt die Kachel immer lückenlos (kein grauer Streifen mehr am Rand); Sonne rückt auf flachen Kacheln unter den Automatik-Schalter und auf dem Handy rechts unter die große Anzeige |
 | 1.5 | 23 | 05.10.2026 | Große Zustandsanzeige wird unten nicht mehr abgeschnitten (g, p, y); Wolken und Vögel ziehen sichtbar schneller; ob sich die Deko bewegt, entscheidet nur noch die Option „Animationen reduzieren“ der Instanz, nicht die Systemeinstellung „Animationseffekte“ |
