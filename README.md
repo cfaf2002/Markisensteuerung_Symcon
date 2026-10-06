@@ -2,7 +2,7 @@
 
 [![IP-Symcon ab 8.2](https://img.shields.io/badge/IP--Symcon-ab_8.2-0b6fb3.svg)](https://www.symcon.de)
 [![Optimiert für Symcon 9.0](https://img.shields.io/badge/optimiert_f%C3%BCr-Symcon_9.0-0b6fb3.svg)](https://www.symcon.de/de/service/dokumentation/installation/migrationen/v81-v90-q1-2026/)
-[![Modul-Version 1.6 (Build 26)](https://img.shields.io/badge/Modul--Version-1.6_(Build_26)-informational.svg)](library.json)
+[![Modul-Version 1.6 (Build 27)](https://img.shields.io/badge/Modul--Version-1.6_(Build_27)-informational.svg)](library.json)
 [![Tests](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml/badge.svg)](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml)
 [![PHP 8.3 und 8.5](https://img.shields.io/badge/PHP-8.3_%7C_8.5-777bb4.svg?logo=php&logoColor=white)](https://www.php.net)
 [![SDK: IPSModuleStrict](https://img.shields.io/badge/SDK-IPSModuleStrict-success.svg)](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/module/)
@@ -447,6 +447,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.6 | 27 | 06.10.2026 | Hausstil: Regel für die Modulliste (`vendor` gesetzt, höchstens ein Alias) in `STYLEGUIDE.md` und Strukturprüfung ergänzt |
 | 1.6 | 26 | 06.10.2026 | Einheitliches Design nach `STYLEGUIDE.md`: Kachel-Grundlage (Farben, Schrift, Radien, Zustandsfarben) und Einstellung „Farbschema der Kachel“ (Symcon-Design, Dunkel, Hell); Kachel-Datei heißt `tile.html`; einheitliche Badges; gemeinsamer Test-Workflow mit Struktur- und Ladetest; Kachel-Grundlage ergänzt, keine sichtbare Änderung |
 | 1.5 | 25 | 05.10.2026 | Modernes Flachdachhaus mit Holzverkleidung, Fensterband und Glas-Schiebetür (gleitet beim Öffnen zur Seite, abends warmes Licht), Holzterrasse, Lounge-Sessel mit Polstern, Pflanzkübel mit wehendem Ziergras, Buchskugeln, Gartenleuchten, Lamellenzaun, Säulenbäume und Lavendel; Wolken ziehen ruhiger; Vögel als Silhouetten mit sanftem Auf und Ab, Flügelschlag und Gleitphasen |
 | 1.5 | 24 | 05.10.2026 | Himmel füllt die Kachel immer lückenlos (kein grauer Streifen mehr am Rand); Sonne rückt auf flachen Kacheln unter den Automatik-Schalter und auf dem Handy rechts unter die große Anzeige |
