@@ -162,6 +162,11 @@ function IPS_GetName(int $id): string { return 'Markise'; }
 
 function IPS_GetParent(int $id): int { return Sym::$vars[$id]['parent'] ?? 0; }
 
+function IPS_GetChildrenIDs(int $id): array
+{
+    return array_keys(array_filter(Sym::$vars, static fn (array $v): bool => ($v['parent'] ?? 0) === $id));
+}
+
 function IPS_GetObject(int $id): array { return ['ObjectID' => $id, 'ObjectIdent' => Sym::$vars[$id]['ident'] ?? '', 'ParentID' => IPS_GetParent($id)]; }
 
 function SetValue(int $id, mixed $value): bool
@@ -257,8 +262,9 @@ class IPSModuleStrict
                 'presentation' => $presentation,
                 'value'        => $this->variables[$ident]['value'] ?? $default,
             ];
+            Sym::$idents[$this->InstanceID][$ident] = $this->variables[$ident]['id'];
         } else {
-            unset($this->variables[$ident], $this->actionsEnabled[$ident]);
+            unset($this->variables[$ident], $this->actionsEnabled[$ident], Sym::$idents[$this->InstanceID][$ident]);
         }
         return true;
     }
@@ -322,6 +328,12 @@ final class TestMarkise extends Markisensteuerung
     protected function Now(): int
     {
         return Sym::$now;
+    }
+
+    /** Sonnenstand (intern, nicht als Befehl exportiert) */
+    public static function sun(int $time, float $latitude, float $longitude): array
+    {
+        return self::SunPosition($time, $latitude, $longitude);
     }
 
     /** Sensorwert ändern und wie Symcon eine VM_UPDATE-Nachricht schicken */

@@ -222,6 +222,8 @@
             "Wind lock": "Windsperre",
             "Wind lock until %s": "Windsperre bis %s",
             "Wind sensor sends no values → awning retracted": "Windsensor liefert keine Werte → Markise eingefahren",
+            "Settings faulty → only safety active": "Einstellungen fehlerhaft → nur die Sicherheit ist aktiv",
+            "Wind and rain protection remains active.": "Wind- und Regenschutz bleiben aktiv.",
             "Wind speed": "Windgeschwindigkeit",
             "Would send: %s": "Würde senden: %s",
             "Would send: position %d %%": "Würde senden: Position %d %%",

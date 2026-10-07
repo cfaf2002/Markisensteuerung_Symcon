@@ -228,6 +228,9 @@
     }
     .auto .track { width: 32px; height: 18px; border-radius: 9px; background: rgba(255, 255, 255, .22); position: relative; transition: background .2s; }
     .auto .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .2s; }
+    /* Klickfläche mindestens 36 px hoch, ohne das Layout zu verändern */
+    .auto, .link { position: relative; }
+    .auto::before { content: ""; position: absolute; inset: -4px -2px; }
     .auto[aria-checked="true"] .track { background: var(--accent); }
     .auto[aria-checked="true"] .track::after { transform: translateX(14px); }
 
@@ -252,6 +255,7 @@
     .bar i { display: block; height: 100%; width: 0; background: var(--tone); transition: width 1s linear; }
     .links { display: flex; gap: 12px; flex-wrap: wrap; }
     .link { border: 0; background: none; padding: 2px 0; color: var(--accent); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+    .link::before { content: ""; position: absolute; inset: -9px -6px; }
 
     /* Platz für den Garten; die Szene selbst liegt als Ebene darunter */
     .spacer { flex: 1 1 auto; min-height: 0; }

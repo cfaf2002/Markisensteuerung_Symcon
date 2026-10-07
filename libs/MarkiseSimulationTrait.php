@@ -97,7 +97,7 @@ trait MarkiseSimulationTrait
      */
     private function SetSimValue(string $ident, mixed $value): void
     {
-        if (!$this->Simulating() || @$this->GetIDForIdent($ident) === false) {
+        if (!$this->Simulating() || $this->VariableID($ident) === 0) {
             throw new InvalidArgumentException('Simulation ist ausgeschaltet oder der Sensor ist nicht eingestellt.');
         }
         switch ($ident) {
@@ -140,7 +140,7 @@ trait MarkiseSimulationTrait
     private function SimFromReal(): void
     {
         foreach (self::SIM_SENSORS as $property => $ident) {
-            if (@$this->GetIDForIdent($ident) === false) {
+            if ($this->VariableID($ident) === 0) {
                 continue;
             }
             $real = $this->ReadSensor($property, true);
@@ -156,7 +156,7 @@ trait MarkiseSimulationTrait
             };
             $this->SetValueIfChanged($ident, $value);
         }
-        if (@$this->GetIDForIdent('SimTime') !== false) {
+        if ($this->VariableID('SimTime') !== 0) {
             $this->SetValueIfChanged('SimTime', '');
         }
     }
@@ -167,7 +167,7 @@ trait MarkiseSimulationTrait
     private function SimSensor(string $property): ?float
     {
         $ident = self::SIM_SENSORS[$property] ?? '';
-        if ($ident === '' || @$this->GetIDForIdent($ident) === false) {
+        if ($ident === '' || $this->VariableID($ident) === 0) {
             return null;
         }
         $v = $this->GetValue($ident);
@@ -180,7 +180,7 @@ trait MarkiseSimulationTrait
      */
     private function SkyTime(int $now): int
     {
-        if (!$this->Simulating() || @$this->GetIDForIdent('SimTime') === false) {
+        if (!$this->Simulating() || $this->VariableID('SimTime') === 0) {
             return $now;
         }
         $t = trim((string) $this->GetValue('SimTime'));
@@ -210,7 +210,7 @@ trait MarkiseSimulationTrait
         array_unshift($lines, date('H:i:s', $this->Now()) . '  ' . $text);
         $lines = array_slice($lines, 0, self::SIM_LOG_LINES);
         $this->WriteAttributeString('SimLog', json_encode($lines));
-        if (@$this->GetIDForIdent('SimLog') !== false) {
+        if ($this->VariableID('SimLog') !== 0) {
             $this->SetValue('SimLog', implode("\n", $lines));
         }
         $this->SendDebug('Simulation', $text, 0);

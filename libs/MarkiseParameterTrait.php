@@ -140,8 +140,8 @@ trait MarkiseParameterTrait
             return 0;
         }
         if ($this->Simulating()) {
-            $sim = @$this->GetIDForIdent('SimPresence');
-            if (is_int($sim) && $sim > 0) {
+            $sim = $this->VariableID('SimPresence');
+            if ($sim > 0) {
                 return $sim;
             }
         }

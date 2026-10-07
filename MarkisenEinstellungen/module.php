@@ -95,7 +95,13 @@ class MarkisenEinstellungen extends IPSModuleStrict
             throw new InvalidArgumentException('Ungültige Daten');
         }
         // Prüfung von Name, Typ und Bereich übernimmt die Markisensteuerung
-        MARKISE_SetParameter($this->ReadPropertyInteger('TargetInstance'), $data['name'], $data['value']);
+        try {
+            MARKISE_SetParameter($this->ReadPropertyInteger('TargetInstance'), $data['name'], $data['value']);
+        } catch (Throwable $e) {
+            // Die Kachel zeigt den neuen Wert schon an: echten Stand erneut schicken, auch wenn er sich nicht geändert hat
+            $this->PushTile(true);
+            throw $e;
+        }
         $this->PushTile();
     }
 
@@ -113,7 +119,7 @@ class MarkisenEinstellungen extends IPSModuleStrict
         return str_replace('/*INITIAL_DATA*/null', (string) $json, $html);
     }
 
-    private function PushTile(): void
+    private function PushTile(bool $force = false): void
     {
         $status = $this->GetStatus();
         $data = [
@@ -133,7 +139,7 @@ class MarkisenEinstellungen extends IPSModuleStrict
         $this->WatchVariables($watch);
 
         $json = json_encode($data);
-        if ($json === $this->ReadAttributeString('TileData')) {
+        if (!$force && $json === $this->ReadAttributeString('TileData')) {
             return; // unverändert: nichts senden
         }
         $this->WriteAttributeString('TileData', $json);

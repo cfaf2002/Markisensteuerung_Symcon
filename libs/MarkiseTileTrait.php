@@ -48,7 +48,7 @@ trait MarkiseTileTrait
         $data['canStop'] = $this->CanStop();
         $data['hasPosition'] = $this->ReadPropertyInteger('ActuatorMode') === 2;
         $data['automatic'] = (bool) $this->GetValue('Automatic');
-        $data['holdEnabled'] = $this->ReadPropertyBoolean('HoldEnabled') && @$this->GetIDForIdent('Hold') !== false;
+        $data['holdEnabled'] = $this->ReadPropertyBoolean('HoldEnabled') && $this->VariableID('Hold') !== 0;
         $data['hold'] = $data['holdEnabled'] && (bool) $this->GetValue('Hold');
         $data['simulation'] = $this->Simulating();
         $data['state'] = (int) $this->GetValue('State');
@@ -230,12 +230,14 @@ trait MarkiseTileTrait
 
     private function ConfigError(int $status): string
     {
+        // Fehler bei optionalen Sensoren oder Grenzwerten: darauf hinweisen, dass die Sicherheit weiterläuft
+        $note = $status !== 102 && $this->ReadAttributeBoolean('SafetyOnly') ? ' ' . $this->Translate('Wind and rain protection remains active.') : '';
         return match ($status) {
             104     => $this->Translate('The instance is switched off. Switch it on in the instance settings.'),
             200     => $this->Translate('Please select the actuator variables in the instance.'),
             201     => $this->Translate('An actuator variable is missing or has no action.'),
-            202     => $this->Translate('A sensor variable does not exist.'),
-            203     => $this->Translate('The brightness to retract must not be higher than the brightness to extend.'),
+            202     => $this->Translate('A sensor variable does not exist.') . $note,
+            203     => $this->Translate('The brightness to retract must not be higher than the brightness to extend.') . $note,
             default => '',
         };
     }

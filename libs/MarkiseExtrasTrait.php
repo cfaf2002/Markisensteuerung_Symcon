@@ -44,7 +44,7 @@ trait MarkiseExtrasTrait
             $doorJustClosed = false;
         }
 
-        if (!$this->ReadPropertyBoolean('HoldEnabled') || @$this->GetIDForIdent('Hold') === false || !$this->GetValue('Hold')) {
+        if (!$this->ReadPropertyBoolean('HoldEnabled') || $this->VariableID('Hold') === 0 || !$this->GetValue('Hold')) {
             return false;
         }
 

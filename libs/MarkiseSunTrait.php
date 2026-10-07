@@ -46,7 +46,7 @@ trait MarkiseSunTrait
      *
      * @return array{azimuth: float, elevation: float} Azimut ab Nord im Uhrzeigersinn, Höhe über dem Horizont (Grad)
      */
-    public static function SunPosition(int $time, float $latitude, float $longitude): array
+    protected static function SunPosition(int $time, float $latitude, float $longitude): array
     {
         $n = $time / 86400 + 2440587.5 - 2451545.0;           // Tage seit J2000.0
         $L = fmod(280.460 + 0.9856474 * $n, 360);              // mittlere Länge

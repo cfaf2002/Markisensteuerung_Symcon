@@ -325,6 +325,8 @@ test('Ein frischer Böensensor genügt', function (): void {
 test('Helligkeitssensor eingefroren (nur tagsüber)', function (): void {
     $m = markise();
     Sym::$jitter = [];
+    // zwischen Einfahr- und Ausfahrhelligkeit: Markise bleibt draußen, der Wert darf sich aber nicht festfahren
+    $m->sensor(V_LUX, 25000.0);
     $m->advance(30);
     check(count(Sym::$actions) === 1, '30 Minuten gleicher Wert: noch ok');
     $m->advance(2);
@@ -337,6 +339,37 @@ test('Helligkeitssensor eingefroren (nur tagsüber)', function (): void {
     Sym::$jitter = [];
     $n->advance(90);
     check($n->value('Status') === Markisensteuerung::ST_NIGHT, 'nachts kein Sensorfehler');
+});
+
+test('Gesättigter Helligkeitssensor in praller Sonne gilt nicht als eingefroren', function (): void {
+    $m = markise([], '12:00', ['lux' => 99000.0]);
+    Sym::$jitter = [];
+    $m->advance(120);
+    check(actions() === [V_EXTEND . '=true'], 'zwei Stunden gleicher Höchstwert: Markise bleibt draußen (' . implode(', ', actions()) . ')');
+    check($m->value('Status') === Markisensteuerung::ST_SUN, 'Status Sonnenschutz');
+});
+
+test('Windsensor sendet nur bei Änderung: bei Windstille kein Sensorfehler, solange das Gerät lebt', function (): void {
+    Sym::$instances[700] = ['module' => 'station', 'props' => []];
+    $m = markise(['GustVariableID' => 0]);
+    Sym::$vars[V_WIND]['parent'] = 700;
+    Sym::$vars[V_WIND]['keepalive'] = false;
+    Sym::$vars[V_LUX]['parent'] = 700; // Helligkeit kommt von derselben Wetterstation und meldet sich weiter
+    $m->advance(180);
+    check(actions() === [V_EXTEND . '=true'], 'Wetterstation meldet sich: kein Einfahren (' . implode(', ', actions()) . ')');
+    // Die ganze Station schweigt: jetzt ist es ein Ausfall
+    Sym::$vars[V_LUX]['keepalive'] = false;
+    $m->advance(122);
+    check(lastAction() === V_RETRACT . '=true', 'Station schweigt: eingefahren');
+    check($m->value('Status') === Markisensteuerung::ST_SENSOR, 'Status Sensorfehler');
+
+    // Kategorie statt Geräte-Instanz: fremde Variablen zählen nicht
+    $n = markise(['GustVariableID' => 0]);
+    Sym::$vars[V_WIND]['parent'] = 777;
+    Sym::$vars[V_LUX]['parent'] = 777;
+    Sym::$vars[V_WIND]['keepalive'] = false;
+    $n->advance(122);
+    check(lastAction() === V_RETRACT . '=true', 'ohne Geräte-Instanz wie bisher: eingefahren');
 });
 
 test('Automatik aus: keine Aktion, Sicherheit trotzdem', function (): void {
@@ -380,7 +413,12 @@ test('Fernbedienung wird erkannt, eigene Befehle nicht', function (): void {
     // Rückmeldung auf unseren eigenen Ausfahrbefehl
     $m->sensor(V_EXTEND, true);
     check($m->attr('ManualUntil') === 0, 'eigener Befehl zählt nicht als Handbetrieb');
-    Sym::$now += 10;
+    // langsames Gateway: Rückmeldung erst nach 20 s
+    Sym::$now += 20;
+    $m->sensor(V_EXTEND, false);
+    $m->sensor(V_EXTEND, true);
+    check($m->attr('ManualUntil') === 0, 'späte Rückmeldung zählt nicht als Handbetrieb');
+    Sym::$now += 20;
     $m->sensor(V_RETRACT, true);
     check($m->attr('ManualUntil') > Sym::$now, 'Einfahren von außen erkannt');
     check($m->attr('LastCommand') === 'retract', 'Zustand übernommen');
@@ -388,12 +426,19 @@ test('Fernbedienung wird erkannt, eigene Befehle nicht', function (): void {
     $count = count(Sym::$actions);
     $m->sensor(V_RETRACT, false);
     check(count(Sym::$actions) === $count, 'Zurücksetzen des Tasters wird ignoriert');
+
+    // Zyklische Meldung einer stehengebliebenen Tastervariable (Wert true, keine Änderung) ist keine Bedienung
+    $n = markise();
+    Sym::$now += 60;
+    $n->sensor(V_EXTEND, true);
+    check($n->attr('ManualUntil') === 0, 'zyklische Meldung ohne Änderung: kein Handbetrieb');
 });
 
 test('Von außen ausgefahren bei Wind: sofort wieder ein', function (): void {
     $m = markise([], '13:00', ['wind' => 7]);
-    Sym::$now += 10;
+    Sym::$now += 40;
     $m->sensor(V_EXTEND, true);
+    check($m->attr('ManualUntil') > Sym::$now, 'Ausfahren von außen erkannt');
     check(lastAction() === V_RETRACT . '=true', 'Sicherheit fährt wieder ein');
 });
 
@@ -480,10 +525,10 @@ test('Sonnenrichtung', function (): void {
 test('Sonnenstand', function (): void {
     // Berlin, Sommeranfang, 13:15 MESZ ≈ wahrer Mittag
     $ts = (new DateTimeImmutable('2026-06-21 13:15', new DateTimeZone('Europe/Berlin')))->getTimestamp();
-    $s = Markisensteuerung::SunPosition($ts, 52.52, 13.40);
+    $s = TestMarkise::sun($ts, 52.52, 13.40);
     check(abs($s['elevation'] - 61.0) < 1.0, 'Höhe ≈ 61° (ist ' . $s['elevation'] . ')');
     check(abs($s['azimuth'] - 180.0) < 5.0, 'Azimut ≈ 180° (ist ' . $s['azimuth'] . ')');
-    $night = Markisensteuerung::SunPosition($ts + 12 * 3600, 52.52, 13.40);
+    $night = TestMarkise::sun($ts + 12 * 3600, 52.52, 13.40);
     check($night['elevation'] < -10, 'nachts unter dem Horizont');
 });
 
@@ -570,6 +615,73 @@ test('Einstellungen in der Visualisierung', function (): void {
     $n = markise();
     check(!$n->has('SetLuxOn'), 'ohne Schalter keine Einstellvariablen');
     check(throws(fn () => $n->RequestAction('SetLuxOn', 1)), 'ohne Schalter abgelehnt');
+});
+
+test('Visualisierung: Ausfahrhelligkeit unter Einfahrhelligkeit gleicht an, Windschutz bleibt', function (): void {
+    $m = markise(['ShowSettings' => true]);
+    $m->RequestAction('SetLuxOn', 10000);
+    check($m->properties['LuxOn'] === 10000, 'Ausfahrhelligkeit übernommen');
+    check($m->properties['LuxOff'] === 10000, 'Einfahrhelligkeit angeglichen (ist ' . $m->properties['LuxOff'] . ')');
+    check($m->status === 102, 'Status 102 (ist ' . $m->status . ')');
+    check($m->timers['Tick']['ms'] === 60000, 'Timer läuft');
+    $m->sensor(V_WIND, 8);
+    check(lastAction() === V_RETRACT . '=true', 'Sturm fährt ein');
+});
+
+test('Fehlender optionaler Sensor: Windschutz bleibt aktiv, Sonnenautomatik ruht', function (): void {
+    $m = markise();
+    unset(Sym::$vars[V_PRESENCE]);
+    $m->ApplyChanges();
+    check($m->status === 202, 'Status 202 (ist ' . $m->status . ')');
+    check($m->timers['Tick']['ms'] === 60000, 'Timer läuft weiter');
+    check(str_contains((string) $m->value('Reason'), 'nur die Sicherheit'), 'Begründung: ' . $m->value('Reason'));
+    $before = count(Sym::$actions);
+    $m->advance(5);
+    check(count(Sym::$actions) === $before, 'keine Komfortfahrten');
+    $m->sensor(V_WIND, 8);
+    check(lastAction() === V_RETRACT . '=true', 'Windalarm fährt ein');
+    check($m->value('Status') === Markisensteuerung::ST_WIND, 'Status Windalarm');
+    $tile = json_decode($m->attr('TileData'), true);
+    check(str_contains($tile['error'] ?? '', 'bleiben aktiv'), 'Kachel nennt den aktiven Schutz: ' . ($tile['error'] ?? ''));
+    // von außen ausgefahren: Sicherheit fährt wieder ein
+    $m->sensor(V_WIND, 7);
+    Sym::$now += 60;
+    $m->sensor(V_EXTEND, true);
+    check(lastAction() === V_RETRACT . '=true', 'von außen ausgefahren: wieder eingefahren');
+    // von Hand ausfahren über das Modul bleibt gesperrt
+    ob_start();
+    $ok = $m->Extend();
+    ob_end_clean();
+    check($ok === false, 'Ausfahren über das Modul abgelehnt');
+
+    $r = markise([], '13:00', ['rain' => false]);
+    unset(Sym::$vars[V_TEMP]);
+    $r->ApplyChanges();
+    $r->sensor(V_RAIN, true);
+    check(lastAction() === V_RETRACT . '=true', 'Regen fährt auch bei 202 ein');
+});
+
+test('Grenzwerte vertauscht (203): Windschutz bleibt aktiv', function (): void {
+    $m = markise(['LuxOn' => 20000, 'LuxOff' => 30000]);
+    check($m->status === 203, 'Status 203');
+    check(Sym::$actions === [], 'kein Ausfahren');
+    check($m->timers['Tick']['ms'] === 60000, 'Timer läuft');
+    $m->sensor(V_GUST, 40.0);
+    check(lastAction() === V_RETRACT . '=true', 'Böenalarm fährt ein');
+
+    $n = markise(['LuxOn' => 20000, 'LuxOff' => 30000, 'WindVariableID' => 0, 'GustVariableID' => 0]);
+    check($n->status === 203 && $n->timers['Tick']['ms'] === 0, 'ohne Windsensor: Instanz ruht wie bisher');
+    $a = markise(['ExtendVariableID' => 0, 'LuxOn' => 20000, 'LuxOff' => 30000]);
+    check($a->status === 200 && $a->timers['Tick']['ms'] === 0, 'ohne Aktor: Instanz ruht');
+});
+
+test('Unwetterwarnung aus: gelöschte Warnvariable stört nicht', function (): void {
+    $m = markise(['UseWarning' => false, 'WarningVariableID' => 4711]);
+    check($m->status === 102, 'Status 102 (ist ' . $m->status . ')');
+    $n = markise(['UseWarning' => true, 'WarningVariableID' => 4711]);
+    check($n->status === 202, 'mit Unwetterwarnung: Status 202');
+    $n->sensor(V_WIND, 8);
+    check(lastAction() === V_RETRACT . '=true', 'Windschutz trotzdem aktiv');
 });
 
 test('Ungültige Aktionen werden abgelehnt', function (): void {
@@ -1323,6 +1435,15 @@ test('Einstellungs-Kachel: ungültige Eingaben werden abgelehnt', function (): v
     $none->prop('TargetInstance', 950);
     $none->ApplyChanges();
     check($none->status === 201, 'falsche Instanz: Status 201');
+});
+
+test('Einstellungs-Kachel: abgelehnte Änderung schickt den echten Stand zurück', function (): void {
+    $m = markise();
+    $s = einstellungen($m);
+    $count = count($s->visualizationUpdates);
+    check(throws(fn () => $s->RequestAction('Set', json_encode(['name' => 'LuxOn', 'value' => 'abc']))), 'abgelehnt');
+    check(count($s->visualizationUpdates) === $count + 1, 'Kachel bekommt den unveränderten Stand erneut');
+    check(wert(json_decode((string) end($s->visualizationUpdates), true), 'LuxOn') === 30000, 'alter Wert');
 });
 
 test('Einstellungs-Kachel: Übersetzung vollständig', function (): void {

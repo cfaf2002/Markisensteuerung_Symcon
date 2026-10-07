@@ -22,8 +22,11 @@ declare(strict_types=1);
  */
 trait MarkiseActuatorTrait
 {
-    /** Zeitfenster, in dem Rückmeldungen der Aktorvariablen als eigene Befehle gelten (Sekunden) */
-    private const OWN_WINDOW_TRIGGER = 4;
+    /**
+     * Zeitfenster, in dem Rückmeldungen der Aktorvariablen als eigene Befehle gelten (Sekunden).
+     * Großzügig, weil langsame Gateways (CCU, Funk mit Duty Cycle) erst nach mehreren Sekunden zurückmelden.
+     */
+    private const OWN_WINDOW_TRIGGER = 30;
 
     /**
      * Schickt einen Befehl an den Motor.
@@ -172,7 +175,8 @@ trait MarkiseActuatorTrait
             case 'retract':
             case 'stop':
                 // Tastervariablen: nur das Auslösen zählt, nicht das Zurücksetzen auf false/0
-                return $value ? $role : null;
+                // und keine zyklische Statusmeldung ohne Änderung
+                return $value && $changed ? $role : null;
 
             case 'switch':
                 if (!$changed) {

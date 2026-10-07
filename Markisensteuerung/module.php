@@ -215,6 +215,7 @@ class Markisensteuerung extends IPSModuleStrict
         $this->RegisterAttributeString('LuxHistory', '[]');
         $this->RegisterAttributeString('MoveLog', '[]');
         $this->RegisterAttributeInteger('WarningVar', 0);
+        $this->RegisterAttributeBoolean('SafetyOnly', false);
 
         $this->RegisterTimer('Tick', 0, 'IPS_RequestAction($_IPS[\'TARGET\'], \'Tick\', 0);');
         $this->RegisterTimer('Travel', 0, 'IPS_RequestAction($_IPS[\'TARGET\'], \'TravelDone\', 0);');
@@ -246,14 +247,17 @@ class Markisensteuerung extends IPSModuleStrict
 
         $status = $this->ReadPropertyBoolean('Active') ? $this->CheckConfiguration() : 104;
         $this->SetStatus($status);
-        $this->SetTimerInterval('Tick', $status === 102 ? 60000 : 0);
-        if ($status !== 102) {
+        // Fehler bei optionalen Sensoren oder Grenzwerten: Wind- und Regenschutz laufen trotzdem weiter
+        $this->WriteAttributeBoolean('SafetyOnly', $status !== 102 && $this->SafetyStillPossible($status));
+        $running = $this->Running();
+        $this->SetTimerInterval('Tick', $running ? 60000 : 0);
+        if (!$running) {
             // Inaktiv oder nicht eingerichtet: keine laufenden Wiederholungen oder Fahrzeit-Timer
             $this->SetTimerInterval('Repeat', 0);
             $this->SetTimerInterval('Travel', 0);
         }
 
-        if ($status === 102) {
+        if ($running) {
             $this->EvaluateNow('apply');
         } else {
             $this->PushTileState();
@@ -266,7 +270,7 @@ class Markisensteuerung extends IPSModuleStrict
             $this->ApplyChanges();
             return;
         }
-        if ($Message !== VM_UPDATE || $this->GetStatus() !== 102) {
+        if ($Message !== VM_UPDATE || !$this->Running()) {
             return;
         }
 
@@ -455,7 +459,7 @@ class Markisensteuerung extends IPSModuleStrict
 
     private function EvaluateNow(string $Trigger): bool
     {
-        if ($this->GetStatus() !== 102) {
+        if (!$this->Running()) {
             return false;
         }
         // Timer und Sensoren laufen in eigenen Threads – nie zwei Bewertungen gleichzeitig
@@ -646,6 +650,7 @@ class Markisensteuerung extends IPSModuleStrict
             'warning'     => $this->WarningLevel(),
             'windStale'   => !$sim && $this->SensorsStale([$windID, $gustID], $now),
             'simulation'  => $sim,
+            'safetyOnly'  => $this->GetStatus() !== 102,
             'sun'         => $sun,
             'isDay'       => $isDay,
             'weekday'     => (int) date('N', $sky),
@@ -748,6 +753,13 @@ class Markisensteuerung extends IPSModuleStrict
             // Beim Eintritt in den Alarm immer einfahren, auch wenn der letzte Befehl schon "einfahren" war
             $entering = $this->ReadAttributeString('SafetyReason') === '';
             return $out($entering ? 'retract' : $retractIfNeeded(), $status, $reason, $safety);
+        }
+
+        // ---------- 1a. Einstellungen fehlerhaft: nur die Sicherheit arbeitet, die Sonnenautomatik ruht ----------
+        if ($c['safetyOnly'] ?? false) {
+            $attr['OnSince'] = 0;
+            $attr['OffSince'] = 0;
+            return $out('none', self::ST_OFF, $this->Translate('Settings faulty → only safety active'));
         }
 
         // ---------- 2. Automatik aus ----------
@@ -914,7 +926,8 @@ class Markisensteuerung extends IPSModuleStrict
      */
     private function ManualOperation(string $command, bool $send): bool
     {
-        if ($this->GetStatus() !== 102) {
+        // Mit fehlerhaften Einstellungen wird nichts gesendet; von außen Bedientes wird aber übernommen (Sicherheit prüft dann)
+        if (!$this->Running() || ($send && $this->GetStatus() !== 102)) {
             echo $this->Translate('The instance is inactive or not configured.');
             return false;
         }
@@ -1081,7 +1094,9 @@ class Markisensteuerung extends IPSModuleStrict
 
     /**
      * Windsensor(en) liefern seit der eingestellten Zeit keine Werte mehr.
-     * Es genügt, wenn einer der beiden (Wind oder Böe) noch aktuell ist.
+     * Es genügt, wenn einer der beiden (Wind oder Böe) noch aktuell ist – oder wenn das Gerät,
+     * zu dem der Windsensor gehört, noch andere Werte liefert (Sensoren, die nur bei Änderung
+     * senden, schweigen bei Windstille, obwohl sie funktionieren).
      */
     private function SensorsStale(array $ids, int $now): bool
     {
@@ -1091,18 +1106,36 @@ class Markisensteuerung extends IPSModuleStrict
         }
         $newest = 0;
         $any = false;
+        $devices = [];
         foreach ($ids as $id) {
             if ($id > 0 && IPS_VariableExists($id)) {
                 $any = true;
                 $newest = max($newest, (int) (IPS_GetVariable($id)['VariableUpdated'] ?? 0));
+                // nur echte Geräte-Instanzen zählen, keine Kategorien mit fremden Variablen
+                $parent = IPS_GetParent($id);
+                if ($parent > 0 && IPS_InstanceExists($parent)) {
+                    $devices[$parent] = true;
+                }
             }
         }
-        return $any && $newest > 0 && ($now - $newest) > $timeout;
+        if (!$any || $newest === 0 || ($now - $newest) <= $timeout) {
+            return false;
+        }
+        foreach (array_keys($devices) as $device) {
+            foreach (IPS_GetChildrenIDs($device) as $child) {
+                if (IPS_VariableExists($child) && ($now - (int) (IPS_GetVariable($child)['VariableUpdated'] ?? 0)) <= $timeout) {
+                    return false; // Gerät meldet sich noch
+                }
+            }
+        }
+        return true;
     }
 
     /**
      * Helligkeitssensor eingefroren: tagsüber seit X Minuten keine Änderung um mindestens Y lx.
-     * Nachts wird nicht geprüft (Helligkeit ist dann zu Recht konstant).
+     * Nachts wird nicht geprüft (Helligkeit ist dann zu Recht konstant), ebenso nicht ab der
+     * Ausfahrhelligkeit: in praller Sonne liefert ein Sensor oft gleichbleibend seinen Höchstwert
+     * (gesättigt) oder sendet nur bei Änderung.
      */
     private function BrightnessFrozen(?float $lux, int $now, bool $isDay): bool
     {
@@ -1113,7 +1146,8 @@ class Markisensteuerung extends IPSModuleStrict
         $lastValue = $this->ReadAttributeFloat('BrightLastValue');
         $lastChange = $this->ReadAttributeInteger('BrightLastChange');
 
-        if (!$isDay || $lastChange === 0 || abs($lux - $lastValue) >= max(0.0, $this->ReadPropertyFloat('FreezeMinChange'))) {
+        $saturated = $lux >= max(1, $this->ReadPropertyInteger('LuxOn'));
+        if (!$isDay || $saturated || $lastChange === 0 || abs($lux - $lastValue) >= max(0.0, $this->ReadPropertyFloat('FreezeMinChange'))) {
             $this->WriteAttributeFloat('BrightLastValue', $lux);
             $this->WriteAttributeInteger('BrightLastChange', $now);
             return false;
@@ -1342,6 +1376,10 @@ class Markisensteuerung extends IPSModuleStrict
                 $value = round(max(-50.0, min(500.0, $value)), 1);
         }
         IPS_SetProperty($this->InstanceID, $property, $value);
+        // Einfahrgrenze nie über der Ausfahrgrenze (sonst Status 203) – wie bei MARKISE_SetParameter
+        if ($property === 'LuxOn' && $value < $this->ReadPropertyInteger('LuxOff')) {
+            IPS_SetProperty($this->InstanceID, 'LuxOff', $value);
+        }
         IPS_ApplyChanges($this->InstanceID);
     }
 
@@ -1377,6 +1415,9 @@ class Markisensteuerung extends IPSModuleStrict
             }
         }
         foreach (['BrightnessVariableID', 'TemperatureVariableID', 'WindVariableID', 'GustVariableID', 'RainVariableID', 'PresenceVariableID', 'DoorVariableID', 'WarningVariableID', 'VacationVariableID'] as $prop) {
+            if ($prop === 'WarningVariableID' && !$this->ReadPropertyBoolean('UseWarning')) {
+                continue; // Unwetterwarnung ausgeschaltet: die Variable spielt keine Rolle
+            }
             $id = $this->ReadPropertyInteger($prop);
             if ($id > 0 && !IPS_VariableExists($id)) {
                 $this->SendDebug('Konfiguration', $prop . ' (' . $id . ') existiert nicht', 0);
@@ -1387,6 +1428,31 @@ class Markisensteuerung extends IPSModuleStrict
             return 203;
         }
         return 102;
+    }
+
+    /**
+     * Bei Status 202 (optionaler Sensor fehlt) oder 203 (Helligkeitsgrenzen) sind die Aktoren in Ordnung.
+     * Gibt es dann noch einen Wind- oder Böensensor, bleibt die Sicherheit aktiv – die Sonnenautomatik ruht.
+     */
+    private function SafetyStillPossible(int $status): bool
+    {
+        if ($status !== 202 && $status !== 203) {
+            return false;
+        }
+        foreach (['WindVariableID', 'GustVariableID'] as $prop) {
+            $id = $this->ReadPropertyInteger($prop);
+            if ($id > 0 && IPS_VariableExists($id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Läuft die Bewertung? Normalbetrieb oder – bei fehlerhaften Einstellungen – nur die Sicherheit */
+    private function Running(): bool
+    {
+        $status = $this->GetStatus();
+        return $status === 102 || (($status === 202 || $status === 203) && $this->ReadAttributeBoolean('SafetyOnly'));
     }
 
     /**
@@ -1546,12 +1612,23 @@ class Markisensteuerung extends IPSModuleStrict
 
     private function SetValueIfChanged(string $ident, mixed $value): void
     {
-        if (@$this->GetIDForIdent($ident) === false) {
+        if ($this->VariableID($ident) === 0) {
             return;
         }
         if ($this->GetValue($ident) !== $value) {
             $this->SetValue($ident, $value);
         }
+    }
+
+    /**
+     * ID der eigenen Variable mit diesem Ident, 0 wenn es sie (gerade) nicht gibt.
+     * Bewusst über IPS_GetObjectIDByIdent, weil GetIDForIdent bei IPSModuleStrict
+     * keinen Rückgabewert false für fehlende Variablen kennt.
+     */
+    private function VariableID(string $ident): int
+    {
+        $id = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
+        return is_int($id) ? $id : 0;
     }
 
     private function UnitSuffix(int $unit): string

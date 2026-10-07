@@ -2,7 +2,7 @@
 
 [![IP-Symcon ab 8.2](https://img.shields.io/badge/IP--Symcon-ab_8.2-0b6fb3.svg)](https://www.symcon.de)
 [![Optimiert für Symcon 9.0](https://img.shields.io/badge/optimiert_f%C3%BCr-Symcon_9.0-0b6fb3.svg)](https://www.symcon.de/de/service/dokumentation/installation/migrationen/v81-v90-q1-2026/)
-[![Modul-Version 1.6 (Build 27)](https://img.shields.io/badge/Modul--Version-1.6_(Build_27)-informational.svg)](library.json)
+[![Modul-Version 1.7 (Build 28)](https://img.shields.io/badge/Modul--Version-1.7_(Build_28)-informational.svg)](library.json)
 [![Tests](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml/badge.svg)](https://github.com/cfaf2002/Markisensteuerung_Symcon/actions/workflows/tests.yml)
 [![PHP 8.3 und 8.5](https://img.shields.io/badge/PHP-8.3_%7C_8.5-777bb4.svg?logo=php&logoColor=white)](https://www.php.net)
 [![SDK: IPSModuleStrict](https://img.shields.io/badge/SDK-IPSModuleStrict-success.svg)](https://www.symcon.de/de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/module/)
@@ -151,8 +151,8 @@ Helligkeit (lx), Außentemperatur (°C), Windgeschwindigkeit und Böen jeweils m
 | Nach dem letzten Windalarm eingefahren lassen | 15 min | Die Sperre beginnt mit jedem neuen Alarmwert von vorn |
 | Nach Regen eingefahren lassen | 10 min | |
 | Frostschutz | an, ≤ 3 °C | Bei Frost wird eingefahren und auch von Hand nicht ausgefahren |
-| Windsensor liefert keine Werte | 120 min | Meldet weder Wind- noch Böensensor in dieser Zeit einen Wert, wird eingefahren (0 = aus) |
-| Helligkeitssensor eingefroren | 30 min, 1 lx | Ändert sich die Helligkeit tagsüber so lange um weniger als den Mindestwert, gilt der Sensor als eingefroren (0 = aus). Nachts wird nicht geprüft |
+| Windsensor liefert keine Werte | 120 min | Meldet weder Wind- noch Böensensor in dieser Zeit einen Wert, wird eingefahren (0 = aus). Liefert das Gerät des Windsensors (dieselbe Instanz, z. B. die Wetterstation) noch andere Werte, gilt der Sensor als in Ordnung – Sensoren, die nur bei Änderung senden, schweigen bei Windstille |
+| Helligkeitssensor eingefroren | 30 min, 1 lx | Ändert sich die Helligkeit tagsüber so lange um weniger als den Mindestwert, gilt der Sensor als eingefroren (0 = aus). Nachts wird nicht geprüft, ebenso nicht ab der Ausfahrhelligkeit (ein Sensor in praller Sonne liefert oft gleichbleibend seinen Höchstwert) |
 | Böen-Trend | an, 12 in 15 min, ab 70 % | Steigen die Böen im Zeitfenster um mindestens den Anstieg und liegen schon beim eingestellten Anteil des Böenalarms, wird vorsorglich eingefahren, mit Windsperre. Der Anstieg gilt in der Einheit des Böensensors |
 | Unwetterwarnung | aus | Fährt bei Warnstufe ab „Einfahren ab Stufe“ (Standard 2 = markantes Wetter) ein, solange die Warnung gilt. Warnstufe leer = automatisch die erste Instanz des Moduls „Unwetterwarnung“ nehmen; „Warnstufe suchen“ trägt sie ins Feld ein. Stufen ab 10 (Hitze, UV) zählen nicht |
 | Sicherheit auch bei ausgeschalteter Automatik | an | |
@@ -192,7 +192,7 @@ Breiten- und Längengrad für Tag/Nacht und Sonnenrichtung. Stehen beide auf 0, 
 | Karenz nach dem Verlassen | 30 min | |
 | Automatik nach Handbetrieb pausieren | 60 min | 0 = keine Pause |
 | Urlaubsschalter | – | Optional, Boolean. An = Urlaub; mit „Invertiert“ gilt aus = Urlaub. Im Urlaub fährt die Markise ein und nicht automatisch aus, Halten endet. Unter dem Feld steht der aktuelle Wert und seine Deutung |
-| Bedienung von außen erkennen | an | Änderungen an den Aktorvariablen, die nicht vom Modul kommen, zählen als Handbetrieb. Bei Tastervariablen zählt nur das Auslösen, bei Positionen nur eine echte Änderung |
+| Bedienung von außen erkennen | an | Änderungen an den Aktorvariablen, die nicht vom Modul kommen, zählen als Handbetrieb. Bei Tastervariablen zählt nur das Auslösen, bei Positionen nur eine echte Änderung; zyklische Meldungen ohne Änderung zählen nie. Rückmeldungen bis 30 s nach einem eigenen Befehl (bei Positionen bis Fahrzeit + 10 s) gelten als Rückmeldung des Moduls |
 
 ### Halten (Abendmodus)
 
@@ -218,6 +218,8 @@ Push-Nachricht bei Sicherheitsalarm, bei jeder automatischen Fahrt, Ziel-Visuali
 | 201 | Eine Aktorvariable fehlt oder hat keine Aktion |
 | 202 | Eine Sensorvariable existiert nicht |
 | 203 | Helligkeit zum Einfahren ist höher als zum Ausfahren |
+
+Bei 202 und 203 ruht die Sonnenautomatik. Sind Aktor und Wind- oder Böensensor vorhanden, bleibt die Sicherheit (Wind, Böen, Regen, Frost, Unwetterwarnung, Sensorausfall) trotzdem aktiv. Die Warnstufe wird nur geprüft, wenn die Unwetterwarnung eingeschaltet ist.
 
 ## 6. Kachel
 
@@ -393,6 +395,7 @@ Nach dem Umstieg das alte Skript und seine Ereignisse deaktivieren, damit nicht 
 - Beim Eintritt in einen Alarm wird immer eingefahren, auch wenn der letzte Befehl schon „einfahren“ war (die Markise könnte per Fernbedienung ausgefahren worden sein). Optional wird der Befehl nach der Fahrzeit wiederholt.
 - Wird bei Alarm von außen ausgefahren, fährt das Modul sofort wieder ein. Ausfahren von Hand wird bei Alarm abgelehnt, mit Begründung.
 - Ausfall des Windsensors und eingefrorener Helligkeitssensor gelten als Sensorfehler und fahren ein.
+- Fehlt eine optionale Sensorvariable oder passen die Helligkeitsgrenzen nicht zusammen (Status 202/203), bleibt der Wind- und Regenschutz aktiv, solange Aktor und Wind- oder Böensensor vorhanden sind. Grenzwerte aus der Visualisierung werden wie in der Einstellungs-Kachel angeglichen, sodass dort kein Status 203 entstehen kann.
 
 **Sicherheit des Moduls**
 
@@ -447,6 +450,7 @@ GitHub Actions (`.github/workflows/tests.yml`) prüft bei jedem Push mit PHP 8.3
 
 | Version | Build | Datum | Beschreibung |
 |---|---|---|---|
+| 1.7 | 28 | 07.10.2026 | Sicherheit: Wind- und Regenschutz bleibt bei fehlerhaften optionalen Sensoren oder vertauschten Helligkeitsgrenzen (Status 202/203) aktiv; „Ausfahren ab“ aus der Visualisierung gleicht „Einfahren unter“ an (kein Status 203 mehr); gelöschte Warnstufe stört bei ausgeschalteter Unwetterwarnung nicht. Gesättigter Helligkeitssensor in praller Sonne gilt nicht mehr als eingefroren; Windsensor, der nur bei Änderung sendet, gilt bei Windstille nicht als ausgefallen, solange sein Gerät andere Werte liefert. Rückmeldefenster für langsame Gateways auf 30 s verlängert, zyklische Meldungen von Tastervariablen zählen nicht als Handbetrieb. Variablen werden zuverlässig über den Ident gesucht. Klickflächen der Kacheln mindestens 36 px; Einstellungs-Kachel zeigt nach abgelehnter Änderung wieder den echten Wert. `SunPosition` ist kein Befehl mehr |
 | 1.6 | 27 | 06.10.2026 | Hausstil: Regel für die Modulliste (`vendor` gesetzt, höchstens ein Alias) in `STYLEGUIDE.md` und Strukturprüfung ergänzt |
 | 1.6 | 26 | 06.10.2026 | Einheitliches Design nach `STYLEGUIDE.md`: Kachel-Grundlage (Farben, Schrift, Radien, Zustandsfarben) und Einstellung „Farbschema der Kachel“ (Symcon-Design, Dunkel, Hell); Kachel-Datei heißt `tile.html`; einheitliche Badges; gemeinsamer Test-Workflow mit Struktur- und Ladetest; Kachel-Grundlage ergänzt, keine sichtbare Änderung |
 | 1.5 | 25 | 05.10.2026 | Modernes Flachdachhaus mit Holzverkleidung, Fensterband und Glas-Schiebetür (gleitet beim Öffnen zur Seite, abends warmes Licht), Holzterrasse, Lounge-Sessel mit Polstern, Pflanzkübel mit wehendem Ziergras, Buchskugeln, Gartenleuchten, Lamellenzaun, Säulenbäume und Lavendel; Wolken ziehen ruhiger; Vögel als Silhouetten mit sanftem Auf und Ab, Flügelschlag und Gleitphasen |
