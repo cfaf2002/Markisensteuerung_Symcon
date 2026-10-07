@@ -49,6 +49,8 @@ class Markisensteuerung extends IPSModuleStrict
     public const ST_HOLD = 13;
     public const ST_WARNING = 14;
     public const ST_VACATION = 15;
+    public const ST_RAIN_SOON = 16;
+    public const ST_GUST_SOON = 17;
 
     // Werte der Variable "Zustand"
     public const STATE_RETRACTED = 0;
@@ -132,6 +134,13 @@ class Markisensteuerung extends IPSModuleStrict
         $this->RegisterPropertyInteger('WarningVariableID', 0);
         $this->RegisterPropertyInteger('WarningMinLevel', 2);
 
+        // Wettervorhersage (Komfort: ab Werk aus)
+        $this->RegisterPropertyInteger('ForecastMode', 0);
+        $this->RegisterPropertyInteger('ForecastRainVariableID', 0);
+        $this->RegisterPropertyInteger('ForecastGustVariableID', 0);
+        $this->RegisterPropertyFloat('ForecastGustLimit', 40.0);
+        $this->RegisterPropertyInteger('ForecastLockMinutes', 30);
+
         // Sonnenautomatik
         $this->RegisterPropertyInteger('LuxOn', 30000);
         $this->RegisterPropertyInteger('LuxOff', 20000);
@@ -200,6 +209,8 @@ class Markisensteuerung extends IPSModuleStrict
         $this->RegisterAttributeInteger('OffSince', 0);
         $this->RegisterAttributeInteger('WindLockUntil', 0);
         $this->RegisterAttributeInteger('RainLockUntil', 0);
+        $this->RegisterAttributeInteger('ForecastLockUntil', 0);
+        $this->RegisterAttributeInteger('ForecastStatus', 0);
         $this->RegisterAttributeString('SafetyReason', '');
         $this->RegisterAttributeFloat('BrightLastValue', -1.0);
         $this->RegisterAttributeInteger('BrightLastChange', 0);
@@ -375,7 +386,7 @@ class Markisensteuerung extends IPSModuleStrict
                 return;
 
             case 'FormGustUnit':
-                foreach (['GustAlarm', 'GustTrendRise'] as $field) {
+                foreach (['GustAlarm', 'GustTrendRise', 'ForecastGustLimit'] as $field) {
                     $this->UpdateFormField($field, 'suffix', trim($this->UnitSuffix((int) $Value)));
                 }
                 return;
@@ -405,6 +416,8 @@ class Markisensteuerung extends IPSModuleStrict
             case 'SimDoor':
             case 'SimWarning':
             case 'SimVacation':
+            case 'SimRainSoon':
+            case 'SimGustSoon':
             case 'SimTime':
                 $this->SetSimValue($Ident, $Value);
                 return;
@@ -647,6 +660,9 @@ class Markisensteuerung extends IPSModuleStrict
             'gust'        => $gust,
             'gustTrend'   => $gustTrend,
             'rain'        => $this->ReadSensor('RainVariableID'),
+            // Vorhersage (null = nicht eingestellt oder ausgeschaltet)
+            'rainSoon'    => $this->ForecastValue('ForecastRainVariableID'),
+            'gustSoon'    => $this->ForecastValue('ForecastGustVariableID'),
             'warning'     => $this->WarningLevel(),
             'windStale'   => !$sim && $this->SensorsStale([$windID, $gustID], $now),
             'simulation'  => $sim,
@@ -667,7 +683,8 @@ class Markisensteuerung extends IPSModuleStrict
 
     /**
      * Entscheidet, was zu tun ist. Reihenfolge = Priorität:
-     * Sicherheit → Automatik aus → Handbetrieb → Halten → Wochentag → Nacht → Zeitfenster → Sonne → Anwesenheit.
+     * Sicherheit → Automatik aus → Handbetrieb → Urlaub → Halten → Wochentag → Nacht → Zeitfenster
+     * → Wettervorhersage → Sonne → Anwesenheit.
      *
      * @return array{action: string, status: int, reason: string, safety: string, attributes: array<string, int>, comfort: bool}
      */
@@ -803,6 +820,28 @@ class Markisensteuerung extends IPSModuleStrict
             return $out($retractIfNeeded(), self::ST_TIME, $this->Translate('Outside the time window → awning retracted'));
         }
 
+        // ---------- 6a. Wettervorhersage (Komfort, nur im Normalbetrieb) ----------
+        $extended = $last === 'extend' || $last === 'stop';
+        $forecast = $this->ForecastState($c, $attr);
+        if ($forecast !== null) {
+            [$fStatus, $fText] = $forecast;
+            $attr['OnSince'] = 0;
+            if (!$extended) {
+                $attr['OffSince'] = 0;
+                return $out('none', $fStatus, sprintf($this->Translate('%s → awning is not extended'), $fText));
+            }
+            if ($this->ReadPropertyInteger('ForecastMode') === 2) {
+                $attr['OffSince'] = 0;
+                if ($this->MoveLimitReached($now)) {
+                    return $out('none', $fStatus, $fText . ' · ' . sprintf($this->Translate('Movement limit (%d per hour) reached → awning stays'), $this->ReadPropertyInteger('MaxMovesPerHour')));
+                }
+                // zählt wie eine Fahrt der Sonnenautomatik (Schaltlimit)
+                $comfort = true;
+                return $out('retract', $fStatus, sprintf($this->Translate('%s → awning retracted as a precaution'), $fText));
+            }
+            // Modus „nicht ausfahren“: eine ausgefahrene Markise bleibt in der Hand der Sonnenautomatik
+        }
+
         // ---------- 7. Sonnenautomatik mit Hysterese und Verzögerung ----------
         $luxOn = $this->ReadPropertyInteger('LuxOn');
         $luxOff = min($luxOn, $this->ReadPropertyInteger('LuxOff'));
@@ -823,7 +862,6 @@ class Markisensteuerung extends IPSModuleStrict
                 && $c['sun']['elevation'] >= $this->ReadPropertyFloat('SunElevationMin');
         }
 
-        $extended = $last === 'extend' || $last === 'stop';
         $action = 'none';
         if (!$extended) {
             $attr['OffSince'] = 0;
@@ -895,6 +933,50 @@ class Markisensteuerung extends IPSModuleStrict
         }
 
         return $out($action, $status, $reason);
+    }
+
+    /**
+     * Ist eine Vorhersage (oder ihre Sperre) aktiv? Liefert [Status, Text] oder null.
+     * Schreibt die Sperre über $attr fort: solange Regen oder Böen angesagt sind, läuft sie neu an.
+     */
+    private function ForecastState(array $c, array &$attr): ?array
+    {
+        if ($this->ReadPropertyInteger('ForecastMode') <= 0) {
+            return null;
+        }
+        $now = $c['now'];
+        $limit = $this->ReadPropertyFloat('ForecastGustLimit');
+        $status = 0;
+        $text = '';
+        if (($c['rainSoon'] ?? null) !== null && $c['rainSoon'] > 0) {
+            $status = self::ST_RAIN_SOON;
+            $text = $this->Translate('Rain forecast');
+        } elseif (($c['gustSoon'] ?? null) !== null && $limit > 0 && $c['gustSoon'] >= $limit) {
+            $status = self::ST_GUST_SOON;
+            $text = sprintf($this->Translate('Gusts forecast (%s)'), $this->Num($c['gustSoon']) . $this->UnitSuffix($this->ReadPropertyInteger('GustUnit')));
+        }
+        if ($status !== 0) {
+            $attr['ForecastLockUntil'] = $now + $this->Minutes('ForecastLockMinutes') * 60;
+            $attr['ForecastStatus'] = $status;
+            return [$status, $text];
+        }
+        $lock = $this->ReadAttributeInteger('ForecastLockUntil');
+        if ($now < $lock) {
+            $status = $this->ReadAttributeInteger('ForecastStatus') === self::ST_GUST_SOON ? self::ST_GUST_SOON : self::ST_RAIN_SOON;
+            return [$status, sprintf($this->Translate('Forecast lock until %s'), date('H:i', $lock))];
+        }
+        return null;
+    }
+
+    /**
+     * Wert einer Vorhersage-Variable; null = Vorhersage aus, Variable nicht gewählt oder nicht vorhanden.
+     */
+    protected function ForecastValue(string $property): ?float
+    {
+        if ($this->ReadPropertyInteger('ForecastMode') <= 0) {
+            return null;
+        }
+        return $this->ReadSensor($property);
     }
 
     private function WaitingReason(bool $bright, bool $warm, bool $wind, bool $sun): string
@@ -1304,6 +1386,8 @@ class Markisensteuerung extends IPSModuleStrict
             $o(self::ST_HOLD, $this->Translate('Hold (evening mode)'), 'moon-stars', 0x6366F1),
             $o(self::ST_WARNING, $this->Translate('Weather warning'), 'triangle-exclamation', 0xDC2626),
             $o(self::ST_VACATION, $this->Translate('Vacation'), 'plane', 0x0F766E),
+            $o(self::ST_RAIN_SOON, $this->Translate('Rain forecast'), 'umbrella', 0xF59E0B),
+            $o(self::ST_GUST_SOON, $this->Translate('Gusts forecast'), 'wind', 0xF59E0B),
         ];
     }
 
@@ -1414,9 +1498,12 @@ class Markisensteuerung extends IPSModuleStrict
                 return 201;
             }
         }
-        foreach (['BrightnessVariableID', 'TemperatureVariableID', 'WindVariableID', 'GustVariableID', 'RainVariableID', 'PresenceVariableID', 'DoorVariableID', 'WarningVariableID', 'VacationVariableID'] as $prop) {
+        foreach (['BrightnessVariableID', 'TemperatureVariableID', 'WindVariableID', 'GustVariableID', 'RainVariableID', 'PresenceVariableID', 'DoorVariableID', 'WarningVariableID', 'VacationVariableID', 'ForecastRainVariableID', 'ForecastGustVariableID'] as $prop) {
             if ($prop === 'WarningVariableID' && !$this->ReadPropertyBoolean('UseWarning')) {
                 continue; // Unwetterwarnung ausgeschaltet: die Variable spielt keine Rolle
+            }
+            if (str_starts_with($prop, 'Forecast') && $this->ReadPropertyInteger('ForecastMode') <= 0) {
+                continue; // Vorhersage ausgeschaltet: die Variablen spielen keine Rolle
             }
             $id = $this->ReadPropertyInteger($prop);
             if ($id > 0 && !IPS_VariableExists($id)) {
@@ -1468,6 +1555,10 @@ class Markisensteuerung extends IPSModuleStrict
         $ids = [];
         foreach (['BrightnessVariableID', 'TemperatureVariableID', 'WindVariableID', 'GustVariableID', 'RainVariableID', 'PresenceVariableID', 'DoorVariableID', 'VacationVariableID'] as $prop) {
             $ids[] = $this->ReadPropertyInteger($prop);
+        }
+        if ($this->ReadPropertyInteger('ForecastMode') > 0) {
+            $ids[] = $this->ReadPropertyInteger('ForecastRainVariableID');
+            $ids[] = $this->ReadPropertyInteger('ForecastGustVariableID');
         }
         $ids[] = $this->WarningID();
         $ids = array_merge($ids, array_keys($this->ActuatorWatchList()));
@@ -1545,7 +1636,7 @@ class Markisensteuerung extends IPSModuleStrict
             if ($name === 'WindAlarm' || $name === 'WindMax') {
                 $el['suffix'] = $windSuffix;
             }
-            if ($name === 'GustAlarm' || $name === 'GustTrendRise') {
+            if ($name === 'GustAlarm' || $name === 'GustTrendRise' || $name === 'ForecastGustLimit') {
                 $el['suffix'] = $gustSuffix;
             }
             if (isset($captions[$name])) {

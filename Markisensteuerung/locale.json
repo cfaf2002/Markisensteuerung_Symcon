@@ -307,7 +307,29 @@
             "Simulation – vacation": "Simulation – Urlaub",
             "Vacation: if the vacation switch of the house is on, the awning stays retracted and is not extended automatically. Safety still applies.": "Urlaub: Ist der Urlaubsschalter des Hauses an, bleibt die Markise eingefahren und fährt nicht automatisch aus. Die Sicherheit gilt weiter.",
             "Vacation switch (optional)": "Urlaubsschalter (optional)",
-            "Inverted (off = vacation)": "Invertiert (aus = Urlaub)"
+            "Inverted (off = vacation)": "Invertiert (aus = Urlaub)",
+            "Weather forecast": "Wettervorhersage",
+            "Comfort, not safety: the awning reacts to rain or gusts that are forecast, e.g. from the module \"Wetter\" (group Forecast). Only in normal operation; wind, rain, frost and warnings always take precedence.": "Komfort, keine Sicherheit: Die Markise reagiert auf angesagten Regen oder angesagte Böen, z. B. aus dem Modul „Wetter“ (Gruppe Vorhersage). Nur im Normalbetrieb; Wind, Regen, Frost und Warnungen haben immer Vorrang.",
+            "When rain or gusts are forecast": "Wenn Regen oder Böen angesagt sind",
+            "Off": "Aus",
+            "Do not extend": "Nicht ausfahren",
+            "Do not extend and retract as a precaution": "Nicht ausfahren und vorsorglich einfahren",
+            "Rain soon (on = rain expected, e.g. \"Rain in the next 2 hours\")": "Regen in Kürze (an = Regen erwartet, z. B. „Regen in den nächsten 2 Stunden“)",
+            "Highest forecast gust": "Vorhergesagte Böen (Höchstwert)",
+            "The gust limit uses the unit selected for the gust sensor under Sensors – set the same unit in the weather module (0 = gusts are ignored).": "Der Böen-Grenzwert gilt in der Einheit, die unter Sensoren für den Böensensor gewählt ist – im Wetter-Modul dieselbe Einheit einstellen (0 = Böen werden nicht beachtet).",
+            "Keep blocked after the forecast ends for": "Nach Ende der Vorhersage noch sperren für",
+            "Rain forecast": "Regen angesagt",
+            "Gusts forecast": "Böen angesagt",
+            "Gusts forecast (%s)": "Böen angesagt (%s)",
+            "Forecast lock until %s": "Vorhersage-Sperre bis %s",
+            "Forecast lock": "Vorhersage-Sperre",
+            "%s → awning is not extended": "%s → Markise wird nicht ausgefahren",
+            "%s → awning retracted as a precaution": "%s → Markise vorsorglich eingefahren",
+            "Rain soon": "Regen in Kürze",
+            "Forecast gusts": "Vorhergesagte Böen",
+            "Simulation – rain forecast": "Simulation – Regen in Kürze",
+            "Simulation – forecast gusts": "Simulation – vorhergesagte Böen",
+            "Counts from": "zählt ab"
         }
     }
 }

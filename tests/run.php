@@ -1481,6 +1481,315 @@ test('Urlaub in der Einstellungs-Kachel: nur Anzeige', function (): void {
 });
 
 // =====================================================================
+// Version 1.8: Wettervorhersage (Regen in Kürze, vorhergesagte Böen)
+// =====================================================================
+
+const V_RAIN_SOON = 401;
+const V_GUST_SOON = 402;
+
+/** Markise mit Vorhersage-Variablen (Modus 2 = nicht ausfahren und vorsorglich einfahren) */
+function vorhersage(array $props = [], bool $rainSoon = false, float $gustSoon = 10.0, array $values = [], string $time = '13:00'): TestMarkise
+{
+    Sym::variable(V_RAIN_SOON, VARIABLETYPE_BOOLEAN, $rainSoon);
+    Sym::variable(V_GUST_SOON, VARIABLETYPE_FLOAT, $gustSoon);
+    return markise(array_merge([
+        'ForecastMode'           => 2,
+        'ForecastRainVariableID' => V_RAIN_SOON,
+        'ForecastGustVariableID' => V_GUST_SOON,
+    ], $props), $time, $values);
+}
+
+test('Vorhersage: ab Werk aus – gewählte Variablen ohne Wirkung', function (): void {
+    $m = vorhersage(['ForecastMode' => 0], true, 80.0);
+    check($m->properties['ForecastLockMinutes'] === 30 && $m->properties['ForecastGustLimit'] === 40.0, 'Standardwerte');
+    check(actions() === [V_EXTEND . '=true'], 'Regen und Böen angesagt, aber Modus aus: fährt aus');
+    check($m->value('Status') === Markisensteuerung::ST_SUN, 'Status Sonnenschutz');
+    check(!isset($m->messages[V_RAIN_SOON]) && !isset($m->references[V_GUST_SOON]), 'Modus aus: Variablen werden nicht überwacht');
+    $tile = json_decode($m->attr('TileData'), true);
+    check(!in_array('rainSoon', array_column($tile['sensors'], 'k'), true), 'Modus aus: keine Vorhersage in der Kachel');
+    unset(Sym::$vars[V_RAIN_SOON]);
+    $m->ApplyChanges();
+    check($m->status === 102, 'Modus aus: gelöschte Vorhersage-Variable stört nicht');
+
+    $n = markise();
+    check($n->properties['ForecastMode'] === 0, 'neue Instanz: Vorhersage aus');
+});
+
+test('Vorhersage Modus 1: Regen angesagt → nicht ausfahren, Sperre gegen Pendeln', function (): void {
+    $m = vorhersage(['ForecastMode' => 1], true);
+    check(Sym::$actions === [], 'nicht ausgefahren');
+    check($m->value('Status') === Markisensteuerung::ST_RAIN_SOON, 'Status „Regen angesagt“');
+    check($m->value('Reason') === 'Regen angesagt → Markise wird nicht ausgefahren', 'Begründung: ' . $m->value('Reason'));
+    check($m->value('Safety') === false, 'keine Sicherheit (Komfort)');
+    check(isset($m->messages[V_RAIN_SOON][VM_UPDATE], $m->references[V_RAIN_SOON]), 'Variable überwacht und als Referenz eingetragen');
+
+    $m->sensor(V_RAIN_SOON, false);
+    check(Sym::$actions === [], 'Vorhersage vorbei: Sperre hält');
+    check(str_contains((string) $m->value('Reason'), 'Vorhersage-Sperre bis'), 'Begründung: ' . $m->value('Reason'));
+    check($m->value('Status') === Markisensteuerung::ST_RAIN_SOON, 'Status bleibt „Regen angesagt“');
+    $m->advance(29);
+    check(Sym::$actions === [], 'nach 29 Minuten noch gesperrt');
+    $m->advance(2);
+    check(actions() === [V_EXTEND . '=true'], 'nach der Sperre ausgefahren');
+
+    $m->sensor(V_RAIN_SOON, true);
+    check(count(Sym::$actions) === 1, 'Modus 1: ausgefahrene Markise bleibt draußen');
+    check($m->value('Status') === Markisensteuerung::ST_SUN, 'Sonnenautomatik zuständig');
+    $m->sensor(V_LUX, 5000.0);
+    check(lastAction() === V_RETRACT . '=true', 'Sonne weg: fährt wie gewohnt ein');
+    $m->sensor(V_LUX, 50000.0);
+    check(lastAction() === V_RETRACT . '=true' && $m->value('Status') === Markisensteuerung::ST_RAIN_SOON, 'danach wieder gesperrt');
+});
+
+test('Vorhersage Modus 2: vorsorglich einfahren, nach der Sperre wieder aus', function (): void {
+    $m = vorhersage(['NotifySafety' => true]);
+    check(actions() === [V_EXTEND . '=true'], 'ohne Vorhersage ausgefahren');
+    $m->advance(1);
+    $m->sensor(V_RAIN_SOON, true);
+    check(lastAction() === V_RETRACT . '=true', 'Regen angesagt: eingefahren');
+    check($m->value('Reason') === 'Regen angesagt → Markise vorsorglich eingefahren', 'Begründung: ' . $m->value('Reason'));
+    check($m->value('Status') === Markisensteuerung::ST_RAIN_SOON, 'Status „Regen angesagt“');
+    check($m->value('Safety') === false && $m->attr('SafetyReason') === '', 'keine Sicherheit');
+    check($m->timers['Repeat']['ms'] === 0, 'keine Wiederholung wie beim Alarm');
+    check(Sym::$notifications === [], 'keine Sicherheits-Nachricht');
+    $m->advance(5);
+    check(count(Sym::$actions) === 2, 'kein Dauerfeuer');
+    check($m->value('Reason') === 'Regen angesagt → Markise wird nicht ausgefahren', 'eingefahren: wird nicht ausgefahren');
+
+    $m->sensor(V_RAIN_SOON, false);
+    $m->advance(29);
+    check(count(Sym::$actions) === 2, 'Sperre hält');
+    $m->advance(2);
+    check(lastAction() === V_EXTEND . '=true', 'nach der Sperre wieder ausgefahren');
+});
+
+test('Vorhersage: kurz wechselnde Vorhersage verlängert die Sperre', function (): void {
+    $m = vorhersage(['ForecastLockMinutes' => 20]);
+    $m->sensor(V_RAIN_SOON, true);
+    $m->sensor(V_RAIN_SOON, false);
+    $m->advance(15);
+    $m->sensor(V_RAIN_SOON, true);
+    $m->sensor(V_RAIN_SOON, false);
+    $m->advance(15);
+    check(lastAction() === V_RETRACT . '=true', 'Sperre läuft ab der letzten Vorhersage neu');
+    $m->advance(6);
+    check(lastAction() === V_EXTEND . '=true', 'danach wieder aus');
+    check(count(Sym::$actions) === 3, 'insgesamt nur aus – ein – aus');
+
+    $n = vorhersage(['ForecastLockMinutes' => 0]);
+    $n->sensor(V_RAIN_SOON, true);
+    $n->sensor(V_RAIN_SOON, false);
+    check(lastAction() === V_EXTEND . '=true', 'Sperre 0: sofort wieder frei');
+});
+
+test('Vorhersage: Böen angesagt, Grenzwert in der Einheit des Böensensors', function (): void {
+    $m = vorhersage([], false, 35.0);
+    check(actions() === [V_EXTEND . '=true'], '35 km/h unter 40: ausgefahren');
+    $m->sensor(V_GUST_SOON, 45.0);
+    check(lastAction() === V_RETRACT . '=true', '45 km/h angesagt: eingefahren');
+    check($m->value('Status') === Markisensteuerung::ST_GUST_SOON, 'Status „Böen angesagt“');
+    check($m->value('Reason') === 'Böen angesagt (45 km/h) → Markise vorsorglich eingefahren', 'Begründung: ' . $m->value('Reason'));
+    $m->sensor(V_GUST_SOON, 20.0);
+    check(str_contains((string) $m->value('Reason'), 'Vorhersage-Sperre'), 'Sperre: ' . $m->value('Reason'));
+    check($m->value('Status') === Markisensteuerung::ST_GUST_SOON, 'Sperre behält den Grund Böen');
+
+    $n = vorhersage(['GustUnit' => 2, 'GustAlarm' => 15.0, 'ForecastGustLimit' => 12.0], false, 12.5, ['gust' => 3.0]);
+    check($n->value('Reason') === 'Böen angesagt (12,5 m/s) → Markise wird nicht ausgefahren', 'm/s: ' . $n->value('Reason'));
+
+    $o = vorhersage(['ForecastGustLimit' => 0.0], false, 90.0);
+    check(actions() === [V_EXTEND . '=true'], 'Grenzwert 0: Böen werden nicht beachtet');
+
+    $p = vorhersage(['ForecastGustVariableID' => 0], false, 90.0);
+    check(actions() === [V_EXTEND . '=true'], 'ohne Böen-Variable: nur Regen zählt');
+});
+
+test('Vorhersage: echte Sicherheit hat Vorrang', function (): void {
+    $m = vorhersage([], true);
+    check(Sym::$actions === [], 'Regen angesagt: bleibt drin');
+    $m->sensor(V_RAIN, true);
+    check(lastAction() === V_RETRACT . '=true', 'echter Regen: Einfahrbefehl beim Eintritt in den Alarm');
+    check($m->value('Status') === Markisensteuerung::ST_RAIN && $m->value('Safety') === true, 'Status Regen, Sicherheit aktiv');
+    $m->sensor(V_RAIN, false);
+    check(str_contains((string) $m->value('Reason'), 'Regensperre'), 'Regensperre vor Vorhersage: ' . $m->value('Reason'));
+    $m->advance(11);
+    check($m->value('Status') === Markisensteuerung::ST_RAIN_SOON, 'nach der Regensperre: Vorhersage');
+    check($m->value('Safety') === false, 'Sicherheit aus');
+    $m->sensor(V_GUST, 30.0);
+    check($m->value('Status') === Markisensteuerung::ST_WIND, 'Böenalarm vor Vorhersage');
+
+    $n = vorhersage([], false, 50.0, ['temp' => 1.0]);
+    check($n->value('Status') === Markisensteuerung::ST_FROST, 'Frost vor Vorhersage');
+});
+
+test('Vorhersage: Handbetrieb, Halten, Automatik aus, Nacht', function (): void {
+    // Handbetrieb: bewusst ausgefahren bleibt ausgefahren, bis die Pause endet
+    $m = vorhersage([], true);
+    ob_start();
+    $ok = $m->Extend();
+    ob_end_clean();
+    check($ok && lastAction() === V_EXTEND . '=true', 'von Hand ausfahren ist erlaubt (Komfort, keine Sicherheit)');
+    check($m->value('Status') === Markisensteuerung::ST_MANUAL, 'Handbetrieb-Pause');
+    $m->advance(30);
+    check(lastAction() === V_EXTEND . '=true', 'Pause wird respektiert');
+    $m->advance(31);
+    check(lastAction() === V_RETRACT . '=true', 'nach der Pause vorsorglich eingefahren');
+
+    // Halten (Abendmodus): nur die Sicherheit fährt ein
+    $h = vorhersage();
+    $h->RequestAction('Hold', true);
+    $h->sensor(V_RAIN_SOON, true);
+    check(actions() === [V_EXTEND . '=true'], 'Halten: bleibt draußen');
+    check($h->value('Status') === Markisensteuerung::ST_HOLD, 'Status Halten');
+    $h->sensor(V_RAIN, true);
+    check(lastAction() === V_RETRACT . '=true', 'echter Regen fährt trotzdem ein');
+
+    // Automatik aus
+    $a = vorhersage();
+    $a->SetAutomatic(false);
+    $a->sensor(V_RAIN_SOON, true);
+    check(actions() === [V_EXTEND . '=true'], 'Automatik aus: keine Vorhersage-Fahrt');
+    check($a->value('Status') === Markisensteuerung::ST_OFF, 'Status Automatik aus');
+
+    // Nacht: der Nachtgrund steht vorn
+    $n = vorhersage([], true, 10.0, [], '23:30');
+    check($n->value('Status') === Markisensteuerung::ST_NIGHT, 'nachts: Status Nacht');
+});
+
+test('Vorhersage: vorsorgliches Einfahren zählt zum Schaltlimit', function (): void {
+    $m = vorhersage(['MaxMovesPerHour' => 1, 'FreezeMinutes' => 0]);
+    Sym::$jitter = [];
+    check(actions() === [V_EXTEND . '=true'], 'erste Fahrt');
+    $m->sensor(V_RAIN_SOON, true);
+    check(count(Sym::$actions) === 1, 'Schaltlimit erreicht: bleibt draußen');
+    check(str_contains((string) $m->value('Reason'), 'Regen angesagt') && str_contains((string) $m->value('Reason'), 'Schaltlimit'), 'Begründung: ' . $m->value('Reason'));
+    check($m->value('Status') === Markisensteuerung::ST_RAIN_SOON, 'Status „Regen angesagt“');
+    $m->advance(61);
+    check(lastAction() === V_RETRACT . '=true', 'eine Stunde später eingefahren');
+    check(count(json_decode($m->attr('MoveLog'), true)) === 1, 'Fahrt gezählt');
+
+    $n = vorhersage(['MaxMovesPerHour' => 2, 'FreezeMinutes' => 0]);
+    Sym::$jitter = [];
+    $n->sensor(V_RAIN_SOON, true);
+    check(lastAction() === V_RETRACT . '=true', 'unter dem Limit: sofort eingefahren');
+    check(count(json_decode($n->attr('MoveLog'), true)) === 2, 'Ausfahren und Einfahren gezählt');
+});
+
+test('Vorhersage: nur im Normalbetrieb, nicht im Nur-Sicherheit-Betrieb', function (): void {
+    $m = vorhersage();
+    check(actions() === [V_EXTEND . '=true'], 'ausgefahren');
+    unset(Sym::$vars[V_TEMP]);
+    $m->ApplyChanges();
+    check($m->status === 202 && $m->timers['Tick']['ms'] > 0, 'Nur-Sicherheit-Betrieb');
+    $m->sensor(V_RAIN_SOON, true);
+    check(count(Sym::$actions) === 1, 'Vorhersage fährt nicht ein');
+    check(str_contains((string) $m->value('Reason'), 'nur die Sicherheit'), 'Begründung: ' . $m->value('Reason'));
+    $m->sensor(V_WIND, 7);
+    check(lastAction() === V_RETRACT . '=true', 'Windschutz arbeitet');
+
+    // gelöschte Vorhersage-Variable bei eingeschalteter Vorhersage: wie jeder optionale Sensor
+    $n = vorhersage();
+    unset(Sym::$vars[V_GUST_SOON]);
+    $n->ApplyChanges();
+    check($n->status === 202, 'Status 202');
+});
+
+test('Vorhersage: Kachel und Statusanzeige', function (): void {
+    $m = vorhersage();
+    $m->advance(1);
+    $m->sensor(V_RAIN_SOON, true);
+    $tile = json_decode($m->attr('TileData'), true);
+    check($tile['status'] === Markisensteuerung::ST_RAIN_SOON && $tile['statusText'] === 'Regen angesagt', 'Statustext');
+    check($tile['tone'] === 'warn', 'Ton „warn“');
+    check($tile['safety'] === false, 'Ausfahrtaste bleibt bedienbar');
+    check($tile['lockUntil'] === Sym::$now + 30 * 60, 'Sperre der Vorhersage in der Kachel');
+    $keys = array_column($tile['sensors'], 'k');
+    check(in_array('rainSoon', $keys, true) && in_array('gustSoon', $keys, true), 'Vorhersage-Werte in der Kachel');
+    $chip = $tile['sensors'][array_search('rainSoon', $keys, true)];
+    check($chip['value'] === 'ja' && $chip['ok'] === false, 'Regen in Kürze: ja');
+    $chip = $tile['sensors'][array_search('gustSoon', $keys, true)];
+    check($chip['value'] === '10 km/h' && $chip['limit'] === '< 40 km/h' && $chip['ok'] === true, 'Böen mit Grenzwert');
+    $m->sensor(V_GUST_SOON, 50.0);
+    $m->sensor(V_RAIN_SOON, false);
+    $tile = json_decode($m->attr('TileData'), true);
+    check($tile['statusText'] === 'Böen angesagt', 'Statustext Böen');
+    $options = json_decode($m->variables['Status']['presentation']['OPTIONS'], true);
+    $values = array_column($options, 'Value');
+    check(in_array(Markisensteuerung::ST_RAIN_SOON, $values, true) && in_array(Markisensteuerung::ST_GUST_SOON, $values, true), 'Status-Darstellung kennt beide Gründe');
+    foreach ($options as $o) {
+        check(isset($o['Value'], $o['Caption'], $o['IconActive'], $o['IconValue'], $o['Color']), 'Aufzählung vollständig: ' . $o['Caption']);
+    }
+    $html = (string) file_get_contents(__DIR__ . '/../Markisensteuerung/tile.html');
+    check(str_contains($html, 'tone-warn') && str_contains($html, "'Forecast lock'"), 'Kachel kennt Ton und Sperre');
+});
+
+test('Vorhersage: Formular', function (): void {
+    $m = vorhersage(['GustUnit' => 2]);
+    $form = json_decode($m->GetConfigurationForm(), true);
+    $found = [];
+    $walk = function (array $els) use (&$walk, &$found): void {
+        foreach ($els as $el) {
+            if (isset($el['name'])) {
+                $found[$el['name']] = $el;
+            }
+            if (isset($el['items'])) {
+                $walk($el['items']);
+            }
+        }
+    };
+    $walk($form['elements']);
+    foreach (['ForecastMode', 'ForecastRainVariableID', 'ForecastGustVariableID', 'ForecastGustLimit', 'ForecastLockMinutes'] as $name) {
+        check(isset($found[$name]), 'Feld ' . $name);
+    }
+    check(array_column($found['ForecastMode']['options'], 'value') === [0, 1, 2], 'drei Modi');
+    check(($found['ForecastGustLimit']['suffix'] ?? '') === 'm/s', 'Grenzwert mit Einheit des Böensensors');
+    $m->RequestAction('FormGustUnit', 1);
+    check(in_array(['ForecastGustLimit', 'suffix', 'km/h'], $m->formUpdates, true), 'Einheit wechselt sofort');
+    $captions = array_column($form['elements'], 'caption');
+    check(array_search('Weather forecast', $captions, true) === array_search('Safety', $captions, true) + 1, 'Abschnitt nach „Sicherheit“');
+});
+
+test('Vorhersage: Simulation', function (): void {
+    $m = vorhersage(['SimulationMode' => true], false, 25.0);
+    check($m->has('SimRainSoon') && $m->has('SimGustSoon'), 'Simulationsvariablen angelegt');
+    check(isset($m->actionsEnabled['SimRainSoon'], $m->actionsEnabled['SimGustSoon']), 'bedienbar');
+    check($m->value('SimRainSoon') === false && $m->value('SimGustSoon') === 25.0, 'Startwerte aus den echten Variablen');
+    check($m->attr('LastCommand') === 'extend', 'gedacht ausgefahren');
+    $m->RequestAction('SimRainSoon', true);
+    check($m->attr('LastCommand') === 'retract', 'gedacht vorsorglich eingefahren');
+    check(Sym::$actions === [], 'nichts wirklich bewegt');
+    check(str_contains((string) $m->value('Reason'), 'Simulation: Regen angesagt'), 'Begründung: ' . $m->value('Reason'));
+    check(str_contains((string) $m->value('SimLog'), 'Würde senden: Einfahren'), 'Protokoll');
+    check(Sym::$vars[V_RAIN_SOON]['value'] === false, 'echte Variable unverändert');
+    $m->sensor(V_RAIN_SOON, true);
+    check(Sym::$actions === [], 'echte Vorhersage löst in der Simulation nichts Echtes aus (Komfort, kein echter Schutz)');
+    $m->RequestAction('SimRainSoon', false);
+    check(str_contains((string) $m->value('Reason'), 'Vorhersage-Sperre'), 'Sperre auch in der Simulation');
+    $m->RequestAction('SimClear', 0);
+    check($m->attr('ForecastLockUntil') === 0 && $m->attr('LastCommand') === 'extend', 'Sperren zurücksetzen löscht auch die Vorhersage-Sperre');
+    $m->RequestAction('SimGustSoon', 60);
+    check($m->value('Status') === Markisensteuerung::ST_GUST_SOON, 'simulierte Böen');
+    check(throws(fn () => $m->RequestAction('SimGustSoon', 'stark')), 'Text statt Zahl abgelehnt');
+
+    $s = vorhersage(['SimulationMode' => true, 'SimSkipDelays' => true]);
+    $s->RequestAction('SimRainSoon', true);
+    $s->RequestAction('SimRainSoon', false);
+    check($s->attr('LastCommand') === 'extend', 'Verzögerungen überspringen: keine Sperre');
+
+    $o = vorhersage(['SimulationMode' => true, 'ForecastMode' => 0]);
+    check(!$o->has('SimRainSoon') && !$o->has('SimGustSoon'), 'Vorhersage aus: keine Simulationsvariablen');
+    $p = vorhersage(['SimulationMode' => true, 'ForecastGustVariableID' => 0]);
+    check($p->has('SimRainSoon') && !$p->has('SimGustSoon'), 'nur für gewählte Variablen');
+
+    $q = vorhersage(['SimulationMode' => true]);
+    $q->RequestAction('SimRainSoon', true);
+    $q->prop('SimulationMode', false);
+    $q->ApplyChanges();
+    check($q->attr('ForecastLockUntil') === 0, 'Simulation beenden: simulierte Sperre gelöscht');
+    check(!$q->has('SimRainSoon'), 'Simulationsvariable entfernt');
+    check(actions() === [V_EXTEND . '=true'], 'echte Werte: ausgefahren');
+});
+
+// =====================================================================
 
 echo PHP_EOL . $passed . ' Prüfungen bestanden, ' . count($failed) . ' fehlgeschlagen.' . PHP_EOL;
 foreach ($failed as $f) {

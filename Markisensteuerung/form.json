@@ -376,6 +376,82 @@
         },
         {
             "type": "ExpansionPanel",
+            "caption": "Weather forecast",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Comfort, not safety: the awning reacts to rain or gusts that are forecast, e.g. from the module \"Wetter\" (group Forecast). Only in normal operation; wind, rain, frost and warnings always take precedence."
+                },
+                {
+                    "type": "Select",
+                    "name": "ForecastMode",
+                    "caption": "When rain or gusts are forecast",
+                    "options": [
+                        {
+                            "caption": "Off",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Do not extend",
+                            "value": 1
+                        },
+                        {
+                            "caption": "Do not extend and retract as a precaution",
+                            "value": 2
+                        }
+                    ]
+                },
+                {
+                    "type": "SelectVariable",
+                    "name": "ForecastRainVariableID",
+                    "caption": "Rain soon (on = rain expected, e.g. \"Rain in the next 2 hours\")",
+                    "width": "600px",
+                    "validVariableTypes": [
+                        0,
+                        1,
+                        2
+                    ]
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "SelectVariable",
+                            "name": "ForecastGustVariableID",
+                            "caption": "Highest forecast gust",
+                            "width": "600px",
+                            "validVariableTypes": [
+                                1,
+                                2
+                            ]
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "ForecastGustLimit",
+                            "caption": "Counts from",
+                            "digits": 1,
+                            "minimum": 0,
+                            "maximum": 200
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "The gust limit uses the unit selected for the gust sensor under Sensors – set the same unit in the weather module (0 = gusts are ignored)."
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "ForecastLockMinutes",
+                    "caption": "Keep blocked after the forecast ends for",
+                    "suffix": "min",
+                    "minimum": 0,
+                    "maximum": 240
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
             "caption": "Sun protection",
             "expanded": false,
             "items": [

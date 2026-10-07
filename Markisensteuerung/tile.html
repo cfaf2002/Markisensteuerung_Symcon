@@ -84,6 +84,7 @@
     #tile.tone-ok   { --tone: var(--ok); }
     #tile.tone-bad  { --tone: var(--bad); }
     #tile.tone-off  { --tone: var(--off); }
+    #tile.tone-warn { --tone: var(--warn); }
 
     /* ---------- Ebenen ---------- */
     .layer { position: absolute; inset: 0; pointer-events: none; }
@@ -634,6 +635,7 @@
             if (s === 10) return 'rain';
             if (s === 11) return 'frost';
             if (s === 14) return 'storm';
+            if (s === 16 || s === 17) return 'cloud'; // Regen oder Böen angesagt: bewölkt, noch kein Unwetter
             if (d.sun && !d.sun.day) return 'night';
             if (s === 2 || d.sunny) return 'sun';
             return 'cloud';
@@ -743,7 +745,7 @@
 
             var n = now(), label = '', left = 0, total = 0;
             if (d.lockUntil > n) {
-                label = t(d.status === 10 ? 'Rain lock' : 'Wind lock');
+                label = t(d.status === 10 ? 'Rain lock' : (d.status === 16 || d.status === 17 ? 'Forecast lock' : 'Wind lock'));
                 left = d.lockUntil - n;
                 total = Math.max(left, 60);
             } else if (d.manualUntil > n) {

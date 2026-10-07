@@ -58,6 +58,11 @@ trait MarkiseTileTrait
         $data['travelStart'] = $this->ReadAttributeInteger('LastCommandTime');
         $data['manualUntil'] = $this->ReadAttributeInteger('ManualUntil');
         $lock = max($this->ReadAttributeInteger('WindLockUntil'), $this->ReadAttributeInteger('RainLockUntil'));
+        $decided = (int) ($result['status'] ?? $data['status'] ?? 0);
+        if ($decided === self::ST_RAIN_SOON || $decided === self::ST_GUST_SOON) {
+            // Vorhersage entscheidet gerade: deren Sperre zeigen (Wind- und Regensperre wären hier schon abgelaufen)
+            $lock = $this->ReadAttributeInteger('ForecastLockUntil');
+        }
         $data['lockUntil'] = $lock > $this->Now() ? $lock : 0;
 
         if ($ctx !== null && $result !== null) {
@@ -167,6 +172,27 @@ trait MarkiseTileTrait
                 'note'  => '',
             ];
         }
+        if (($c['rainSoon'] ?? null) !== null) {
+            $list[] = [
+                'k'     => 'rainSoon',
+                'label' => $this->Translate('Rain soon'),
+                'value' => $c['rainSoon'] > 0 ? $this->Translate('yes') : $this->Translate('no'),
+                'limit' => '',
+                'ok'    => $c['rainSoon'] <= 0,
+                'note'  => '',
+            ];
+        }
+        if (($c['gustSoon'] ?? null) !== null) {
+            $limit = $this->ReadPropertyFloat('ForecastGustLimit');
+            $list[] = [
+                'k'     => 'gustSoon',
+                'label' => $this->Translate('Forecast gusts'),
+                'value' => $this->Num($c['gustSoon']) . $gu,
+                'limit' => $limit > 0 ? '< ' . $this->Num($limit) . $gu : '',
+                'ok'    => $limit <= 0 || $c['gustSoon'] < $limit,
+                'note'  => '',
+            ];
+        }
         if ($this->ReadPropertyInteger('VacationVariableID') > 0) {
             $list[] = [
                 'k'     => 'vacation',
@@ -224,6 +250,7 @@ trait MarkiseTileTrait
             self::ST_SUN => 'ok',
             self::ST_WIND, self::ST_RAIN, self::ST_FROST, self::ST_SENSOR, self::ST_WARNING => 'bad',
             self::ST_OFF, self::ST_WEEKDAY, self::ST_NIGHT, self::ST_TIME, self::ST_VACATION => 'off',
+            self::ST_RAIN_SOON, self::ST_GUST_SOON => 'warn',
             default => 'info',
         };
     }

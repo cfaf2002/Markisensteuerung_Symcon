@@ -21,15 +21,17 @@ trait MarkiseSimulationTrait
 {
     /** Simulationsvariable je Sensor-Eigenschaft */
     private const SIM_SENSORS = [
-        'BrightnessVariableID'  => 'SimLux',
-        'TemperatureVariableID' => 'SimTemp',
-        'WindVariableID'        => 'SimWind',
-        'GustVariableID'        => 'SimGust',
-        'RainVariableID'        => 'SimRain',
-        'PresenceVariableID'    => 'SimPresence',
-        'DoorVariableID'        => 'SimDoor',
-        'WarningVariableID'     => 'SimWarning',
-        'VacationVariableID'    => 'SimVacation',
+        'BrightnessVariableID'   => 'SimLux',
+        'TemperatureVariableID'  => 'SimTemp',
+        'WindVariableID'         => 'SimWind',
+        'GustVariableID'         => 'SimGust',
+        'RainVariableID'         => 'SimRain',
+        'PresenceVariableID'     => 'SimPresence',
+        'DoorVariableID'         => 'SimDoor',
+        'WarningVariableID'      => 'SimWarning',
+        'VacationVariableID'     => 'SimVacation',
+        'ForecastRainVariableID' => 'SimRainSoon',
+        'ForecastGustVariableID' => 'SimGustSoon',
     ];
 
     /** Einträge im Simulationsprotokoll */
@@ -66,12 +68,18 @@ trait MarkiseSimulationTrait
             'SimDoor'     => ['Simulation – terrace door open', VARIABLETYPE_BOOLEAN, $switch('door-open'), 206],
             'SimWarning'  => ['Simulation – weather warning level', VARIABLETYPE_INTEGER, $slider('triangle-exclamation', 0, 4, 1, '', 0), 207],
             'SimVacation' => ['Simulation – vacation', VARIABLETYPE_BOOLEAN, $switch('plane'), 210],
+            'SimRainSoon' => ['Simulation – rain forecast', VARIABLETYPE_BOOLEAN, $switch('umbrella'), 211],
+            'SimGustSoon' => ['Simulation – forecast gusts', VARIABLETYPE_FLOAT, $slider('wind', 0, self::UnitMax($gu), self::UnitStep($gu), $this->UnitSuffix($gu), $gu === 0 ? 0 : 1), 212],
         ];
         $sensorOf = array_flip(self::SIM_SENSORS);
         foreach ($defs as $ident => [$name, $type, $presentation, $pos]) {
             $property = $sensorOf[$ident];
             // Warnstufe: auch ohne gewählte Variable (automatisch gefunden), sobald die Warnung eingeschaltet ist
             $configured = $property === 'WarningVariableID' ? $this->ReadPropertyBoolean('UseWarning') : $this->ReadPropertyInteger($property) > 0;
+            // Vorhersage: nur, wenn sie auch eingeschaltet ist
+            if (str_starts_with($property, 'Forecast') && $this->ReadPropertyInteger('ForecastMode') <= 0) {
+                $configured = false;
+            }
             $keep = $sim && $configured;
             $this->MaintainVariable($ident, $this->Translate($name), $type, $presentation, $pos, $keep);
             if ($keep) {
@@ -105,6 +113,7 @@ trait MarkiseSimulationTrait
             case 'SimPresence':
             case 'SimDoor':
             case 'SimVacation':
+            case 'SimRainSoon':
                 $value = (bool) $value;
                 break;
             case 'SimWarning':
@@ -148,11 +157,11 @@ trait MarkiseSimulationTrait
                 continue;
             }
             $value = match ($ident) {
-                'SimRain', 'SimPresence' => $real > 0,
-                'SimDoor'                => (int) round($real) !== $this->ReadPropertyInteger('DoorClosedValue'),
-                'SimWarning'             => max(0, min(4, (int) round($real))),
-                'SimVacation'            => ($real > 0) !== $this->ReadPropertyBoolean('VacationInvert'),
-                default                  => round($real, 1),
+                'SimRain', 'SimPresence', 'SimRainSoon' => $real > 0,
+                'SimDoor'                               => (int) round($real) !== $this->ReadPropertyInteger('DoorClosedValue'),
+                'SimWarning'                            => max(0, min(4, (int) round($real))),
+                'SimVacation'                           => ($real > 0) !== $this->ReadPropertyBoolean('VacationInvert'),
+                default                                 => round($real, 1),
             };
             $this->SetValueIfChanged($ident, $value);
         }
@@ -266,7 +275,7 @@ trait MarkiseSimulationTrait
     private function ResetRuntime(bool $simulation): void
     {
         $this->WriteAttributeString('LastCommand', '');
-        foreach (['OnSince', 'OffSince', 'WindLockUntil', 'RainLockUntil', 'AbsentSince', 'BrightLastChange'] as $a) {
+        foreach (['OnSince', 'OffSince', 'WindLockUntil', 'RainLockUntil', 'ForecastLockUntil', 'AbsentSince', 'BrightLastChange'] as $a) {
             $this->WriteAttributeInteger($a, 0);
         }
         foreach (['GustHistory', 'LuxHistory', 'MoveLog'] as $a) {
@@ -292,7 +301,7 @@ trait MarkiseSimulationTrait
         if (!$this->Simulating()) {
             throw new InvalidArgumentException('Nur in der Simulation möglich.');
         }
-        foreach (['OnSince', 'OffSince', 'WindLockUntil', 'RainLockUntil'] as $a) {
+        foreach (['OnSince', 'OffSince', 'WindLockUntil', 'RainLockUntil', 'ForecastLockUntil'] as $a) {
             $this->WriteAttributeInteger($a, 0);
         }
         foreach (['GustHistory', 'LuxHistory', 'MoveLog'] as $a) {
